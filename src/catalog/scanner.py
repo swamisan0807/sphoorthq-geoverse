@@ -12,7 +12,7 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 
 from src.core.paths import PROCESSED_DIR, RAW_DIR
-from src.core.types import DataSource, DatasetRecord, DatasetStatus
+from src.core.types import DatasetRecord, DatasetStatus, DataSource
 
 _SAFE_DATE_RE = re.compile(r"(\d{4})(\d{2})(\d{2})[Tt]\d{6}")
 
