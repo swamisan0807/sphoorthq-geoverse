@@ -21,18 +21,33 @@ def run_robustness_suite(
     sar_channel_indices: list[int],
     optical_channel_indices: list[int],
     model_id: str,
+    valid_mask: np.ndarray | None = None,
 ) -> dict:
+    """valid_mask: optional boolean array, same shape as label - pixels
+    where this is False are excluded from every condition's evaluation.
+    Defaults to label != -1 if not given, but callers whose input data can
+    have its own nodata sentinel independent of the label (e.g. sen1floods11
+    S1 chips can have NaN pixels that do NOT always coincide with a -1
+    label - confirmed by direct inspection) should pass a mask that also
+    accounts for that, or every condition's IoU/F1 silently treats no-data
+    pixels as a confirmed negative class."""
+    if valid_mask is None:
+        valid_mask = label != -1
+
     results = {"model_id": model_id, "objective": objective_name, "conditions": {}}
 
+    def eval_masked(pred: np.ndarray) -> dict:
+        return evaluate_objective(objective_name, pred[valid_mask], label[valid_mask])
+
     clean_pred = predict_fn(cube)
-    results["conditions"]["clean"] = evaluate_objective(objective_name, clean_pred, label)
+    results["conditions"]["clean"] = eval_masked(clean_pred)
 
     for name, perturb_fn in PERTURBATIONS.items():
         idx = sar_channel_indices if "speckle" in name or "incidence" in name else optical_channel_indices
         try:
             perturbed_cube = perturb_fn(cube, idx)
             pred = predict_fn(perturbed_cube)
-            results["conditions"][name] = evaluate_objective(objective_name, pred, label)
+            results["conditions"][name] = eval_masked(pred)
         except Exception as e:  # noqa: BLE001 - record failure, keep the suite running
             results["conditions"][name] = {"error": str(e)}
 

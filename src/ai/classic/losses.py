@@ -54,3 +54,30 @@ class ComboLoss(nn.Module):
         return (1 - self.dice_weight) * self.bce(logits, target) + self.dice_weight * self.dice(
             logits, target
         )
+
+
+class MaskedComboLoss(nn.Module):
+    """ComboLoss that excludes no-data pixels (e.g. sen1floods11's label=-1)
+    from both terms, via a boolean valid_mask - BCEWithLogitsLoss has no
+    native masking support, so it's computed per-pixel and mean-reduced
+    over valid pixels only; Dice is computed on values already zeroed at
+    invalid pixels in both prediction and target, which is exact for Dice
+    (a masked-out pixel contributes 0 to both intersection and union)."""
+
+    def __init__(self, dice_weight: float = 0.5):
+        super().__init__()
+        self.bce = nn.BCEWithLogitsLoss(reduction="none")
+        self.dice = DiceLoss()
+        self.dice_weight = dice_weight
+
+    def forward(self, logits: torch.Tensor, target: torch.Tensor, valid_mask: torch.Tensor) -> torch.Tensor:
+        target = target.float()
+        mask = valid_mask.float()
+
+        bce_per_pixel = self.bce(logits, target)
+        bce = (bce_per_pixel * mask).sum() / mask.sum().clamp(min=1.0)
+
+        masked_probs_logits = logits * mask + (1 - mask) * -10.0  # push invalid pixels' sigmoid to ~0
+        dice = self.dice(masked_probs_logits, target * mask)
+
+        return (1 - self.dice_weight) * bce + self.dice_weight * dice
