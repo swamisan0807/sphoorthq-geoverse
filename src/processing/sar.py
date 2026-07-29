@@ -1,25 +1,17 @@
-"""Sentinel-1 GRD preprocessing: calibration, speckle filtering, terrain correction.
+"""SAR speckle filtering and dB conversion.
 
-Reference chain (standard SAR preprocessing order):
-  1. radiometric calibration (DN -> sigma0)
-  2. speckle filtering
-  3. terrain (radiometric slope) correction using a DEM
-  4. conversion to dB for model input
+sen1floods11 chips (the only SAR data in this repo - see docs/architecture.md
+for why the other raw scenes were removed) arrive already radiometrically
+calibrated and terrain-corrected by the dataset publisher, so only speckle
+filtering and dB handling are needed here. The full raw-GRD calibration
+chain (DN -> sigma0 via a calibration LUT, terrain flattening via a DEM's
+local incidence angle) is a real, separate preprocessing stage for
+uncalibrated Sentinel-1 products - out of scope until such a product is
+actually part of this pipeline.
 """
 
 import numpy as np
-import rasterio
 from scipy.ndimage import uniform_filter
-
-
-def calibrate_to_sigma0(dn: np.ndarray, calibration_lut: np.ndarray) -> np.ndarray:
-    """Apply per-pixel calibration: sigma0 = DN^2 / calibration_constant^2.
-
-    calibration_lut must already be resampled/interpolated to the raster's
-    full resolution (see Sentinel-1 annotation/calibration/*.xml sigmaNought LUT).
-    """
-    dn = dn.astype(np.float64)
-    return (dn**2) / (calibration_lut**2)
 
 
 def lee_filter(image: np.ndarray, window: int = 7) -> np.ndarray:
@@ -36,29 +28,3 @@ def lee_filter(image: np.ndarray, window: int = 7) -> np.ndarray:
 
 def to_db(sigma0: np.ndarray, floor: float = 1e-6) -> np.ndarray:
     return 10.0 * np.log10(np.clip(sigma0, floor, None))
-
-
-def terrain_flatten(sigma0: np.ndarray, local_incidence_angle_deg: np.ndarray) -> np.ndarray:
-    """Radiometric terrain correction: gamma0 = sigma0 / cos(local_incidence_angle)."""
-    theta = np.deg2rad(local_incidence_angle_deg)
-    return sigma0 / np.clip(np.cos(theta), 1e-3, None)
-
-
-def preprocess_grd(
-    src_path: str,
-    calibration_lut: np.ndarray,
-    local_incidence_angle_deg: np.ndarray,
-    speckle_window: int = 7,
-) -> tuple[np.ndarray, dict]:
-    """Full chain: read -> calibrate -> despeckle -> terrain-flatten -> dB."""
-    with rasterio.open(src_path) as src:
-        dn = src.read(1)
-        profile = src.profile
-
-    sigma0 = calibrate_to_sigma0(dn, calibration_lut)
-    despeckled = lee_filter(sigma0, window=speckle_window)
-    gamma0 = terrain_flatten(despeckled, local_incidence_angle_deg)
-    db = to_db(gamma0)
-
-    profile.update(dtype="float32", count=1)
-    return db.astype(np.float32), profile

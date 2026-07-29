@@ -1,0 +1,66 @@
+{
+  "run_id": "e37afa6b-f0ca-43d5-af08-08f611813c2d",
+  "run_name": "04_classical_ml",
+  "started_at": 1785340032.3770897,
+  "ended_at": 1785340970.9977558,
+  "stages": [
+    {
+      "name": "build_train_pixel_table",
+      "started_at": 1785340032.405042,
+      "ended_at": 1785340035.1855974,
+      "duration_s": 2.781,
+      "status": "ok",
+      "metrics": {
+        "n_chips": 15,
+        "n_pixels": 3228826
+      },
+      "error": null
+    },
+    {
+      "name": "build_valid_pixel_table",
+      "started_at": 1785340035.1881142,
+      "ended_at": 1785340036.667906,
+      "duration_s": 1.48,
+      "status": "ok",
+      "metrics": {
+        "n_chips": 8,
+        "n_pixels": 1578750
+      },
+      "error": null
+    },
+    {
+      "name": "train_random_forest",
+      "started_at": 1785340036.6866944,
+      "ended_at": 1785340961.3402581,
+      "duration_s": 924.654,
+      "status": "ok",
+      "metrics": {
+        "n_estimators": 200
+      },
+      "error": null
+    },
+    {
+      "name": "evaluate_random_forest",
+      "started_at": 1785340961.4155223,
+      "ended_at": 1785340970.7469454,
+      "duration_s": 9.331,
+      "status": "ok",
+      "metrics": {
+        "iou": 0.3582,
+        "f1": 0.5275,
+        "precision": 0.8384,
+        "recall": 0.3848,
+        "boundary_f1": 0.2365
+      },
+      "error": null
+    }
+  ],
+  "metrics": {
+    "model_path": "d:\\project-raw-data\\sphoorthq-geoverse\\datasets\\processed\\models\\classical_rf_v1.pkl",
+    "valid_iou": 0.35823362811398185,
+    "valid_f1": 0.5274992765588029,
+    "valid_precision": 0.8383675788277625,
+    "valid_recall": 0.38481072388722287,
+    "valid_boundary_f1": 0.2364969832725171
+  }
+}

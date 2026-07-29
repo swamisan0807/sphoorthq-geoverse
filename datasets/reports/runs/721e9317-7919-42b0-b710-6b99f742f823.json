@@ -1,0 +1,57 @@
+{
+  "run_id": "721e9317-7919-42b0-b710-6b99f742f823",
+  "run_name": "09_patch_unet",
+  "started_at": 1785331147.611399,
+  "ended_at": 1785331208.340417,
+  "stages": [
+    {
+      "name": "build_datasets",
+      "started_at": 1785331147.6251044,
+      "ended_at": 1785331147.6251044,
+      "duration_s": 0.0,
+      "status": "ok",
+      "metrics": {
+        "n_train_chips": 20,
+        "n_val_chips": 8
+      },
+      "error": null
+    },
+    {
+      "name": "train_unet",
+      "started_at": 1785331149.3372734,
+      "ended_at": 1785331205.2841554,
+      "duration_s": 55.947,
+      "status": "ok",
+      "metrics": {
+        "epochs": 3,
+        "mean_epoch_s": 18.6,
+        "chips_per_sec": 1.072
+      },
+      "error": null
+    },
+    {
+      "name": "evaluate_unet",
+      "started_at": 1785331205.2986803,
+      "ended_at": 1785331208.289155,
+      "duration_s": 2.99,
+      "status": "ok",
+      "metrics": {
+        "iou": 0.2531,
+        "f1": 0.256,
+        "precision": 0.3615,
+        "recall": 0.6284,
+        "boundary_f1": 0.3045,
+        "infer_chips_per_sec": 2.675
+      },
+      "error": null
+    }
+  ],
+  "metrics": {
+    "model_path": "d:\\project-raw-data\\sphoorthq-geoverse\\datasets\\processed\\models\\patch_unet_v1.pt",
+    "valid_iou": 0.25306253602512757,
+    "valid_f1": 0.25604819861069045,
+    "valid_precision": 0.3614680656483267,
+    "valid_recall": 0.6284203348542412,
+    "valid_boundary_f1": 0.3045334069694968
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "model_id": "classical_rf_v1_Pakistan",
+  "objective": "flood-segmentation",
+  "conditions": {
+    "clean": {
+      "iou": 0.0,
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "boundary_f1": 0.0
+    },
+    "speckle_heavy": {
+      "iou": 0.0,
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "boundary_f1": 0.0
+    },
+    "incidence_shift_10deg": {
+      "iou": 0.0,
+      "f1": 0.0,
+      "precision": 0.0,
+      "recall": 0.0,
+      "boundary_f1": 0.0
+    },
+    "optical_dropout": {
+      "iou": 0.0008835483300936561,
+      "f1": 0.0017655367231638418,
+      "precision": 0.0008870123649523674,
+      "recall": 0.18450184501845018,
+      "boundary_f1": 0.005753739930955121
+    },
+    "gaussian_noise_low": {
+      "iou": 0.00021640337589266391,
+      "f1": 0.00043271311120726956,
+      "precision": 0.00022289089490694304,
+      "recall": 0.007380073800738007,
+      "boundary_f1": 0.000536480686695279
+    },
+    "gaussian_noise_high": {
+      "iou": 0.0005793212793853096,
+      "f1": 0.0011579717211116529,
+      "precision": 0.000583807036411123,
+      "recall": 0.07011070110701106,
+      "boundary_f1": 0.002597814034531918
+    }
+  },
+  "timestamp": "20260729T130646Z"
+}

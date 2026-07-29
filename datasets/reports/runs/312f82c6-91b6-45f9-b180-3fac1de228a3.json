@@ -1,0 +1,78 @@
+{
+  "run_id": "312f82c6-91b6-45f9-b180-3fac1de228a3",
+  "run_name": "05_qml_ibm_braket",
+  "started_at": 1784398303.560315,
+  "ended_at": 1784398634.7950387,
+  "stages": [
+    {
+      "name": "build_small_labeled_sample",
+      "started_at": 1784398303.570392,
+      "ended_at": 1784398303.6319516,
+      "duration_s": 0.062,
+      "status": "ok",
+      "metrics": {
+        "chip_id": "Ghana_953791",
+        "n_train": 4,
+        "n_test": 2
+      },
+      "error": null
+    },
+    {
+      "name": "check_ibm_quantum_connectivity",
+      "started_at": 1784398303.6394975,
+      "ended_at": 1784398306.782762,
+      "duration_s": 3.143,
+      "status": "ok",
+      "metrics": {
+        "connected_to_ibm_cloud": true
+      },
+      "error": null
+    },
+    {
+      "name": "check_braket_connectivity",
+      "started_at": 1784398306.782762,
+      "ended_at": 1784398306.782762,
+      "duration_s": 0.0,
+      "status": "ok",
+      "metrics": {
+        "connected_to_aws_braket": false
+      },
+      "error": null
+    },
+    {
+      "name": "train_quantum_kernel_svm_ibm",
+      "started_at": 1784398314.0966482,
+      "ended_at": 1784398632.698718,
+      "duration_s": 318.602,
+      "status": "ok",
+      "metrics": {
+        "backend": "ibm",
+        "is_real_hardware": true,
+        "iou": 0.0,
+        "f1": 0.0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "boundary_f1": 1.0
+      },
+      "error": null
+    },
+    {
+      "name": "train_quantum_kernel_svm_braket",
+      "started_at": 1784398632.7073739,
+      "ended_at": 1784398634.7884147,
+      "duration_s": 2.081,
+      "status": "ok",
+      "metrics": {
+        "backend": "braket",
+        "is_real_hardware": false,
+        "iou": 0.5,
+        "f1": 0.6667,
+        "precision": 0.5,
+        "recall": 1.0,
+        "boundary_f1": 1.0
+      },
+      "error": null
+    }
+  ],
+  "metrics": {}
+}

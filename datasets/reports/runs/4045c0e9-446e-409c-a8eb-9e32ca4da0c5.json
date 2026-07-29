@@ -1,0 +1,113 @@
+{
+  "run_id": "4045c0e9-446e-409c-a8eb-9e32ca4da0c5",
+  "run_name": "08_robustness_sweep",
+  "started_at": 1785330308.6266572,
+  "ended_at": 1785330406.7033458,
+  "stages": [
+    {
+      "name": "select_chips_across_events",
+      "started_at": 1785330369.4988883,
+      "ended_at": 1785330369.4988883,
+      "duration_s": 0.0,
+      "status": "ok",
+      "metrics": {
+        "events": [
+          "Ghana",
+          "India",
+          "Mekong",
+          "Nigeria",
+          "Pakistan"
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "robustness_sweep_Ghana",
+      "started_at": 1785330369.5166128,
+      "ended_at": 1785330374.7712755,
+      "duration_s": 5.255,
+      "status": "ok",
+      "metrics": {
+        "chip_id": "Ghana_5079",
+        "clean_iou": 1.0,
+        "n_nodata_s1_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "name": "robustness_sweep_India",
+      "started_at": 1785330374.7712755,
+      "ended_at": 1785330382.0394762,
+      "duration_s": 7.268,
+      "status": "ok",
+      "metrics": {
+        "chip_id": "India_1050276",
+        "clean_iou": 0.1847,
+        "n_nodata_s1_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "name": "robustness_sweep_Mekong",
+      "started_at": 1785330382.0394762,
+      "ended_at": 1785330389.3395865,
+      "duration_s": 7.3,
+      "status": "ok",
+      "metrics": {
+        "chip_id": "Mekong_1149855",
+        "clean_iou": 0.4242,
+        "n_nodata_s1_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "name": "robustness_sweep_Nigeria",
+      "started_at": 1785330389.3395865,
+      "ended_at": 1785330397.6076975,
+      "duration_s": 8.268,
+      "status": "ok",
+      "metrics": {
+        "chip_id": "Nigeria_31096",
+        "clean_iou": 0.0384,
+        "n_nodata_s1_pixels": 0
+      },
+      "error": null
+    },
+    {
+      "name": "robustness_sweep_Pakistan",
+      "started_at": 1785330397.6087446,
+      "ended_at": 1785330406.6794446,
+      "duration_s": 9.071,
+      "status": "ok",
+      "metrics": {
+        "chip_id": "Pakistan_43105",
+        "clean_iou": 0.0,
+        "n_nodata_s1_pixels": 733
+      },
+      "error": null
+    }
+  ],
+  "metrics": {
+    "events_swept": [
+      "Ghana",
+      "India",
+      "Mekong",
+      "Nigeria",
+      "Pakistan"
+    ],
+    "clean_iou_by_event": {
+      "Ghana": 1.0,
+      "India": 0.18473871496541522,
+      "Mekong": 0.4241813602015113,
+      "Nigeria": 0.03837209302325582,
+      "Pakistan": 0.0
+    },
+    "mean_degradation_by_perturbation": {
+      "speckle_heavy": 0.43,
+      "incidence_shift_10deg": -0.2094,
+      "optical_dropout": -0.5835,
+      "gaussian_noise_low": 0.0961,
+      "gaussian_noise_high": 0.4697
+    }
+  }
+}

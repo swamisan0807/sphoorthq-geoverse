@@ -1,0 +1,38 @@
+{
+  "run_id": "8999eb80-7f1b-4fb9-9379-47e13c6d7e6d",
+  "run_name": "02_process",
+  "started_at": 1785342583.4202557,
+  "ended_at": 1785342585.2725472,
+  "stages": [
+    {
+      "name": "load_chip",
+      "started_at": 1785342583.4339786,
+      "ended_at": 1785342583.479233,
+      "duration_s": 0.045,
+      "status": "ok",
+      "metrics": {
+        "chip_id": "Ghana_103272",
+        "shape": [
+          2,
+          512,
+          512
+        ]
+      },
+      "error": null
+    },
+    {
+      "name": "speckle_filter",
+      "started_at": 1785342583.4870555,
+      "ended_at": 1785342583.5392177,
+      "duration_s": 0.052,
+      "status": "ok",
+      "metrics": {
+        "vv_std_reduction": 0.55
+      },
+      "error": null
+    }
+  ],
+  "metrics": {
+    "chips_processed": 1
+  }
+}

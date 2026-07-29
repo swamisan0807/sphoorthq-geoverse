@@ -1,0 +1,33 @@
+{
+  "run_id": "8b310506-8371-4ffc-b303-dd20fa41d35d",
+  "run_name": "03_feature_engineering",
+  "started_at": 1784396875.695151,
+  "ended_at": 1784396875.7766156,
+  "stages": [
+    {
+      "name": "build_features_one_chip",
+      "started_at": 1784396875.701024,
+      "ended_at": 1784396875.7538323,
+      "duration_s": 0.053,
+      "status": "ok",
+      "metrics": {
+        "chip_id": "Ghana_103272",
+        "feature_channels": 6
+      },
+      "error": null
+    },
+    {
+      "name": "flatten_to_pixel_table",
+      "started_at": 1784396875.7622008,
+      "ended_at": 1784396875.7697668,
+      "duration_s": 0.008,
+      "status": "ok",
+      "metrics": {
+        "n_valid_pixels": 259269,
+        "water_fraction": 0.006
+      },
+      "error": null
+    }
+  ],
+  "metrics": {}
+}
