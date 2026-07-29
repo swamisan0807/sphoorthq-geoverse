@@ -1,49 +1,103 @@
 import { useEffect, useState } from "react";
-
-import { api, DatasetSummary } from "../api/client";
+import { api, type EventSummary } from "../api/client";
+import { useAuthedImage } from "../api/useAuthedImage";
 
 export default function CatalogPage() {
-  const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
+  const [events, setEvents] = useState<EventSummary[] | null>(null);
+  const [split, setSplit] = useState("train");
+  const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const [chipIds, setChipIds] = useState<string[]>([]);
+  const [selectedChip, setSelectedChip] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { url: previewUrl, error: previewError } = useAuthedImage(
+    selectedChip ? api.chipPreviewPath(selectedChip) : null,
+  );
 
   useEffect(() => {
-    api.listDatasets().then(setDatasets).catch((e) => setError(String(e)));
+    api.events().then(setEvents).catch((e) => setError(String(e)));
   }, []);
 
+  useEffect(() => {
+    if (!selectedEvent) {
+      setChipIds([]);
+      return;
+    }
+    api
+      .chips(split, selectedEvent)
+      .then((r) => {
+        setChipIds(r.chip_ids);
+        setSelectedChip(null);
+      })
+      .catch((e) => setError(String(e)));
+  }, [split, selectedEvent]);
+
   return (
-    <>
-      <div className="page-title">Dataset Catalog</div>
-      <div className="page-subtitle">
-        Sources scanned from datasets/raw. Status flips to "processed" once
-        src/processing writes to datasets/processed.
-      </div>
-      {error && <div className="card">Failed to load: {error}</div>}
-      <div className="card">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Source</th>
-              <th>Acquisition Date</th>
-              <th>CRS</th>
-              <th>Status</th>
+    <div className="page">
+      <h2>Catalog</h2>
+      <p className="hint">
+        {events ? `${events.length} flood events, ${events.reduce((a, e) => a + e.total, 0)} hand-labeled chips total (sen1floods11)` : "loading..."}
+      </p>
+      {error && <p className="error">{error}</p>}
+
+      <table>
+        <thead>
+          <tr>
+            <th>event</th>
+            <th>train</th>
+            <th>valid</th>
+            <th>test</th>
+            <th>total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {events?.map((e) => (
+            <tr
+              key={e.event}
+              className={`clickable ${selectedEvent === e.event ? "selected" : ""}`}
+              onClick={() => setSelectedEvent(e.event)}
+            >
+              <td>{e.event}</td>
+              <td>{e.train}</td>
+              <td>{e.valid}</td>
+              <td>{e.test}</td>
+              <td>{e.total}</td>
             </tr>
-          </thead>
-          <tbody>
-            {datasets.map((d) => (
-              <tr key={d.id}>
-                <td>{d.id}</td>
-                <td>{d.source}</td>
-                <td>{d.acquisition_date ?? "—"}</td>
-                <td>{d.crs ?? "—"}</td>
-                <td>
-                  <span className={`badge ${d.status}`}>{d.status}</span>
-                </td>
-              </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {selectedEvent && (
+        <section>
+          <h3>
+            {selectedEvent} chips
+            <select value={split} onChange={(ev) => setSplit(ev.target.value)}>
+              <option value="train">train</option>
+              <option value="valid">valid</option>
+              <option value="test">test</option>
+            </select>
+          </h3>
+          <div className="chip-grid">
+            {chipIds.map((id) => (
+              <button
+                key={id}
+                className={selectedChip === id ? "selected" : ""}
+                onClick={() => setSelectedChip(id)}
+              >
+                {id}
+              </button>
             ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+          </div>
+        </section>
+      )}
+
+      {selectedChip && (
+        <section>
+          <h3>{selectedChip}</h3>
+          <p className="hint">left: VV/VH false-color · right: hand-labeled mask (blue = water, gray = nodata)</p>
+          {previewError && <p className="error">{previewError}</p>}
+          {previewUrl && <img className="preview" src={previewUrl} alt={selectedChip} />}
+        </section>
+      )}
+    </div>
   );
 }

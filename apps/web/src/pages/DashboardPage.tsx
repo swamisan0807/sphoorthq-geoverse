@@ -1,56 +1,155 @@
-import { useEffect, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Fragment, useEffect, useRef, useState } from "react";
+import mermaid from "mermaid";
+import { api, type ModelInfo, type RunRecord } from "../api/client";
 
-import { api, ExperimentSummary } from "../api/client";
+mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
 
-export default function DashboardPage() {
-  const [experiments, setExperiments] = useState<ExperimentSummary[]>([]);
-  const [error, setError] = useState<string | null>(null);
+function formatBytes(n: number): string {
+  if (n > 1e6) return `${(n / 1e6).toFixed(1)} MB`;
+  if (n > 1e3) return `${(n / 1e3).toFixed(1)} KB`;
+  return `${n} B`;
+}
+
+function formatTime(epochSeconds: number): string {
+  return new Date(epochSeconds * 1000).toLocaleString();
+}
+
+function DiagramView() {
+  const [source, setSource] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.listExperiments().then(setExperiments).catch((e) => setError(String(e)));
+    api.architecture().then((r) => setSource(r.mermaid)).catch((e) => setSource(`%% error: ${e}`));
   }, []);
 
-  const chartData = experiments.map((e) => ({
-    name: e.id,
-    iou: e.metrics.iou ?? 0,
-    f1: e.metrics.f1 ?? 0,
-    boundary_f1: e.metrics.boundary_f1 ?? 0,
-  }));
+  useEffect(() => {
+    if (!source || !containerRef.current) return;
+    const el = containerRef.current;
+    mermaid
+      .render("architecture-diagram", source)
+      .then(({ svg }) => {
+        el.innerHTML = svg;
+      })
+      .catch((e) => {
+        el.textContent = `diagram render failed: ${e}`;
+      });
+  }, [source]);
+
+  return <div className="diagram" ref={containerRef} />;
+}
+
+export default function DashboardPage() {
+  const [runs, setRuns] = useState<RunRecord[] | null>(null);
+  const [models, setModels] = useState<ModelInfo[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.runs(20).then(setRuns).catch((e) => setError(String(e)));
+    api.models().then(setModels).catch((e) => setError(String(e)));
+  }, []);
 
   return (
-    <>
-      <div className="page-title">Experiments</div>
-      <div className="page-subtitle">
-        Classic vs quantum model comparison. Populated once src/ai training
-        loops write results to datasets/reports.
-      </div>
-      {error && <div className="card">Failed to load: {error}</div>}
-      <div className="card" style={{ height: 320 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#262b36" />
-            <XAxis dataKey="name" stroke="#8b93a3" fontSize={12} />
-            <YAxis stroke="#8b93a3" fontSize={12} domain={[0, 1]} />
-            <Tooltip
-              contentStyle={{ background: "#151922", border: "1px solid #262b36" }}
-            />
-            <Legend />
-            <Bar dataKey="iou" fill="#3b6fe0" />
-            <Bar dataKey="f1" fill="#4dd07c" />
-            <Bar dataKey="boundary_f1" fill="#f0b64d" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </>
+    <div className="page">
+      <h2>Observability Dashboard</h2>
+      {error && <p className="error">{error}</p>}
+
+      <section>
+        <h3>Saved models</h3>
+        {!models && <p>loading...</p>}
+        {models && models.length === 0 && <p>No models trained yet - run notebooks 04 / 09.</p>}
+        {models && models.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <th>name</th>
+                <th>size</th>
+                <th>last modified</th>
+              </tr>
+            </thead>
+            <tbody>
+              {models.map((m) => (
+                <tr key={m.name}>
+                  <td>{m.name}</td>
+                  <td>{formatBytes(m.size_bytes)}</td>
+                  <td>{formatTime(m.modified_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section>
+        <h3>Recent pipeline runs</h3>
+        {!runs && <p>loading...</p>}
+        {runs && runs.length === 0 && <p>No runs logged yet - execute a notebook first.</p>}
+        {runs && runs.length > 0 && (
+          <table>
+            <thead>
+              <tr>
+                <th>notebook</th>
+                <th>started</th>
+                <th>duration</th>
+                <th>stages</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map((r) => {
+                const duration = r.ended_at ? (r.ended_at - r.started_at).toFixed(1) : "running";
+                const isOpen = expanded === r.run_id;
+                return (
+                  <Fragment key={r.run_id}>
+                    <tr className="run-row" onClick={() => setExpanded(isOpen ? null : r.run_id)}>
+                      <td>{r.run_name}</td>
+                      <td>{formatTime(r.started_at)}</td>
+                      <td>{duration}s</td>
+                      <td>
+                        {r.stages.filter((s) => s.status === "ok").length}/{r.stages.length} ok
+                      </td>
+                      <td>{isOpen ? "▲" : "▼"}</td>
+                    </tr>
+                    {isOpen && (
+                      <tr>
+                        <td colSpan={5}>
+                          <table className="nested">
+                            <thead>
+                              <tr>
+                                <th>stage</th>
+                                <th>status</th>
+                                <th>duration</th>
+                                <th>metrics</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {r.stages.map((s) => (
+                                <tr key={s.name}>
+                                  <td>{s.name}</td>
+                                  <td className={s.status}>{s.status}</td>
+                                  <td>{s.duration_s ?? "-"}s</td>
+                                  <td>
+                                    <code>{JSON.stringify(s.metrics)}</code>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section>
+        <h3>Architecture</h3>
+        <DiagramView />
+      </section>
+    </div>
   );
 }
