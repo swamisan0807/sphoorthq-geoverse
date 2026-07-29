@@ -1,0 +1,30 @@
+# Real, buildable image for src/api - validated in CI (.github/workflows/ci.yml).
+# Not deployed anywhere by this repo: there's no configured registry/target,
+# so "deployment" here means "the image builds and runs", not "ships to prod".
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# rasterio needs libgdal at runtime; the manylinux wheel bundles it, but a
+# few base OS libs (libexpat, libgomp) are still required underneath.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libexpat1 \
+    libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ src/
+COPY config/ config/
+COPY notebooks/ notebooks/
+
+# datasets/raw (the real satellite imagery, tens of GB) is intentionally
+# NOT baked into the image - mount it as a volume at runtime. These
+# subdirs just need to exist so the app can write job/run logs and models.
+RUN mkdir -p datasets/metadata datasets/processed/models datasets/reports/runs datasets/reports/jobs
+
+ENV PYTHONPATH=/app
+
+EXPOSE 8000
+CMD ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000"]

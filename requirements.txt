@@ -1,0 +1,54 @@
+# ============================
+# Scientific computing
+# ============================
+numpy
+scipy
+pandas
+scikit-learn
+scikit-image
+pyyaml
+
+# ============================
+# Geospatial I/O (SAR/optical raster reading)
+# ============================
+rasterio
+
+# ============================
+# Deep learning (classical baseline: U-Net)
+# ============================
+torch
+
+# ============================
+# Cloud ingestion connectors (src/ingestion)
+# ============================
+boto3                       # S3
+azure-identity               # ADLS auth
+azure-storage-file-datalake  # ADLS Gen2
+google-cloud-storage         # GCS
+
+# ============================
+# Notebook environment
+# ============================
+jupyter
+jupyterlab
+notebook
+ipykernel
+matplotlib
+tqdm
+
+# ============================
+# Web API (src/api) - serves the notebook pipeline to apps/web
+# ============================
+fastapi
+uvicorn[standard]
+pillow
+bcrypt           # user password hashing (src/auth/store.py)
+pyjwt            # session tokens
+networkx         # knowledge graph (events -> chips -> model versions -> metrics)
+
+# ============================
+# Quantum ML (required for notebooks 05/06 - see requirements-quantum.txt)
+# Kept in a separate file: heavy dependency chain (qiskit + Braket SDKs),
+# install speed for the classical-only path matters if you're iterating
+# on ingestion/processing without touching the QML notebooks.
+# ============================

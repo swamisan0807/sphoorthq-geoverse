@@ -1,0 +1,14 @@
+# Keep the Docker build context small - without this, `docker build .`
+# would try to tar up the venv and tens of GB of raw satellite imagery.
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+apps/web/node_modules/
+apps/web/dist/
+datasets/raw/
+datasets/processed/
+datasets/exports/
+datasets/thumbnails/
+.git/

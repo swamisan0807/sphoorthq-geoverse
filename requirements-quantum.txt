@@ -1,0 +1,12 @@
+# ============================
+# IBM Quantum (src/qml/ibm_quantum.py)
+# ============================
+qiskit
+qiskit-aer
+qiskit-ibm-runtime
+qiskit-machine-learning
+
+# ============================
+# AWS Braket (src/qml/braket_quantum.py)
+# ============================
+amazon-braket-sdk

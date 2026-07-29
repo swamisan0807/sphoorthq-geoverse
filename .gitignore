@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Node / web frontend
+apps/web/node_modules/
+apps/web/dist/
+
+# Datasets - large binary raster/vector data, not meant for git.
+# Fetch via the ingest pipeline instead of committing; see docs/architecture.md.
+datasets/raw/
+datasets/processed/
+datasets/exports/
+datasets/thumbnails/
+*.tif
+*.tiff
+*.jp2
+*.osm.pbf
+!datasets/raw/.gitkeep
+!datasets/processed/.gitkeep
+!datasets/exports/.gitkeep
+!datasets/thumbnails/.gitkeep
+
+# datasets/metadata and datasets/reports are small JSON - keep tracked,
+# except real secrets/user data:
+datasets/metadata/users.db
+datasets/metadata/.jwt_secret
+datasets/reports/knowledge_graph.json
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

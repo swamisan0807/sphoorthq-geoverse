@@ -1,0 +1,12 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+# Errors, undefined names, unused imports, import sorting - real bugs, not
+# style opinions. Broader rulesets (blind-except, subprocess.run(check=),
+# etc.) aren't enabled: this codebase deliberately catches broad
+# exceptions in several places (with an explanatory comment) to keep a
+# pipeline stage or job thread alive after logging a failure, which is a
+# real, intentional pattern here rather than an oversight to lint away.
+select = ["E", "F", "I"]

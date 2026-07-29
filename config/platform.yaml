@@ -1,0 +1,34 @@
+# Credential/config reference for every connector in src/ingestion and
+# src/qml. Nothing here is a secret - these are the ENV VAR NAMES the code
+# reads, not values. Set them in your shell or a .env you load yourself;
+# nothing in this repo reads a .env automatically.
+
+ingestion:
+  s3:
+    env: [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN]
+    note: "falls back to ~/.aws/credentials or an IAM role if unset. anonymous=True works for public buckets with no credentials at all."
+  adls:
+    env: [AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID]
+    note: "DefaultAzureCredential chain - also supports managed identity, az CLI login."
+  gcs:
+    env: [GOOGLE_APPLICATION_CREDENTIALS]
+    note: "path to a service account JSON key. anonymous=True works for public buckets (this is how sen1floods11 was pulled)."
+  http:
+    env: []
+    note: "no credentials at all - plain HTTPS against the public XML listing API. Used for datasets/raw/sen1floods11."
+
+qml:
+  ibm_quantum:
+    env: [IBM_QUANTUM_TOKEN]
+    note: "get a free token at https://quantum.ibm.com. Without it, src/qml/ibm_quantum.py falls back to a local AerSimulator - explicitly logged as is_real_hardware: False."
+    channel: ibm_quantum
+  braket:
+    env: [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, BRAKET_DEVICE_ARN]
+    note: "BRAKET_DEVICE_ARN selects the device - a managed simulator (e.g. SV1) or a real QPU (IonQ/Rigetti/IQM). Without it, src/qml/braket_quantum.py falls back to Braket's LocalSimulator - explicitly logged as is_real_hardware: False."
+    example_arn: "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
+
+objectives:
+  flood-segmentation:
+    classes: {0: not_water, 1: water}
+    primary_metric: iou
+    metrics: [iou, f1, precision, recall, boundary_f1]
