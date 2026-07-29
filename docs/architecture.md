@@ -1,112 +1,170 @@
-# geoverse architecture
+# geoverse platform architecture
 
-SAR-centric multi-modal segmentation pipeline: Sentinel-1 SAR fused with Sentinel-2 optical,
-Copernicus DEM, ESA WorldCover, and OSM, feeding both classical and quantum-hybrid
-segmentation models, with a web UI for cataloging data, running inference, and comparing
-model results.
+A cloud-agnostic SAR flood-segmentation platform built for Thales' **SAR Image Analysis** track
+(Quantum Innovation Summit 2026 - Algorithm Design Competition): "enhance segmentation accuracy and
+computational efficiency in complex imaging environments" via a classical ML + quantum ML hybrid.
 
-## Data inventory (`datasets/raw/`)
+## Design
 
-| Source | Content | Role |
-|---|---|---|
-| `sentinel1/` | 1 scene, IW GRD, dual-pol VV+VH, 2026-06-28 | primary input |
-| `sentinel2/` | 1 tile (T09XWK), L2A, full 10/20/60m bands | auxiliary optical + weak labels (NDVI/NDWI) |
-| `dem/` | 1 Copernicus DEM GLO-30 tile | terrain correction + slope/aspect feature |
-| `worldcover/` | 333 tiles, ESA WorldCover 10m 2021, covering N30-N81/E60-E117 | weak/reference labels |
-| `osm/` | 1 Asia extract (.osm.pbf) | vector ground truth (water/buildings/roads) |
-| `sen1floods11/` | 446 hand-labeled chips, 11 flood events, 1.7GB | **primary label source for flood segmentation** |
+1. **Ingest** from any cloud (S3 / Azure Data Lake Storage Gen2 / Google Cloud Storage / a public HTTPS
+   bucket / local disk) through one connector interface - `src/ingestion/`.
+2. **Process, engineer features, train, and evaluate in Jupyter notebooks** - `notebooks/01`-`09` - not a
+   hidden service. Every stage is inspectable and re-runnable.
+3. **ML + QML hybrid**: a classical Random Forest (pixel-wise, notebook `04`) and U-Net (patch-wise,
+   notebook `09`) baseline (`src/ai/classic/`) and a quantum kernel SVM that connects to real
+   **IBM Quantum** (via `qiskit-ibm-runtime`'s `QiskitRuntimeService`) and real **AWS Braket**
+   (via `AwsDevice`) - `src/qml/`. Results from both feed a hybrid ensemble (notebook `06`).
+   Notebooks `05`/`06` default to `FORCE_SIMULATION = True` (local `AerSimulator`/`LocalSimulator`,
+   no cloud calls) - flip that flag to route the same code through real hardware.
+4. **Observability**: every notebook stage logs through `RunLogger` (`src/observability/`) to
+   `datasets/reports/runs/*.json` - timing, status, metrics, per stage, per run. Notebook `07` renders
+   that history plus the architecture diagram below.
+5. **Robustness**: notebook `08` sweeps 5 perturbation types (heavy speckle, incidence-angle shift,
+   texture-channel dropout, two Gaussian noise levels) across 5 distinct flood events using
+   `src/ai/robustness/evaluate.py`'s `run_robustness_suite`.
 
-**Known issue (standalone scenes only):** `sentinel1/`, `sentinel2/`, `dem/`, and `worldcover/` do not
-spatially overlap - their footprints were checked directly: S1 is North Africa (~34N/6E), S2 is the
-Canadian Arctic (~80N/-123W), DEM is Somalia (~11S/47E), WorldCover covers Central Asia/Siberia
-(N30-N81/E60-E117). `src/processing/coregistration.py` will fail or produce an empty stack if pointed at
-these four together - they're unrelated sample downloads, not a coherent AOI. `config/aoi.yaml` is
-intentionally empty pending a real overlapping AOI (or use each modality independently to exercise its
-own processing module).
+## Architecture / dataflow diagram
 
-**`sen1floods11` does not have this problem.** Downloaded from the public GCS bucket
-(`gs://sen1floods11`, source: [cloudtostreet/Sen1Floods11](https://github.com/cloudtostreet/Sen1Floods11)) -
-scoped to the `HandLabeled` subset (~1.7GB of the ~34.3GB full bucket; `WeaklyLabeled`/`perm_water`/
-`checkpoints` excluded). Each of its 446 chips is a self-contained, pre-aligned 512x512px @ 10m AOI
-(S1 VV/VH + hand-labeled water mask), so it needs no coregistration at all. Verified end-to-end: the
-catalog scanner correctly reports all 446 chips across 11 events with all three official splits present;
-a smoke test read a real chip pair (`Ghana_103272`), ran it through `src/processing/tiling.chip()`, and
-scored the dataset's own Otsu-threshold baseline against the hand labels via
-`src/ai/objectives/registry.evaluate()` - IoU 0.582, F1 0.736, precision 0.602, recall 0.947, which is a
-believable number (Otsu over-detects water, hence high recall / lower precision). This is the fastest
-path to a real trained model - see `config/datasets.yaml` for the full field-by-field breakdown.
+```mermaid
+flowchart TB
+    subgraph SOURCES["Cloud Sources"]
+        S3["AWS S3"]
+        ADLS["Azure ADLS Gen2"]
+        GCS["Google Cloud Storage"]
+        HTTP["Public HTTPS bucket"]
+    end
 
-## Pipeline flow
+    subgraph INGEST["src/ingestion"]
+        CONN["IngestionConnector\n(s3 / adls / gcs / http / local)"]
+    end
 
+    RAW[("datasets/raw/\nlocal, analysis-ready")]
+
+    subgraph PROCESS["notebooks/02_process\n+ src/processing"]
+        CAL["Lee speckle filter\n+ linear-to-dB"]
+    end
+
+    subgraph FEAT["notebooks/03_feature_engineering"]
+        TEX["Texture / polarimetric\nfeatures + NaN masking"]
+        VEC["Per-pixel feature vectors\n(vv/vh/ratio/diff/local stats)"]
+    end
+
+    subgraph CLASSICAL["Classical ML"]
+        RF["Random Forest\n(notebook 04, pixel-wise)"]
+        UNET["U-Net\n(notebook 09, patch-wise)"]
+    end
+
+    subgraph QUANTUM["Quantum ML - src/qml\n(FORCE_SIMULATION default)"]
+        IBM["IBM Quantum Runtime\n(QiskitRuntimeService / AerSimulator)"]
+        BRAKET["AWS Braket\n(AwsDevice / LocalSimulator)"]
+        QKERNEL["Quantum kernel SVM\n(batched gram-matrix jobs)"]
+    end
+
+    HYBRID["Hybrid ensemble\n(notebook 06, classical + QML vote)"]
+    EVAL["Evaluation\n(src/ai/objectives)"]
+    ROBUST["Robustness sweep\n(notebook 08: 5 perturbations x 5 events)"]
+
+    subgraph OBS["Observability - src/observability"]
+        LOG["RunLogger\n(per-stage timing + metrics)"]
+        RUNS[("datasets/reports/runs/*.json")]
+    end
+
+    S3 --> CONN
+    ADLS --> CONN
+    GCS --> CONN
+    HTTP --> CONN
+    CONN --> RAW
+    RAW --> CAL --> TEX --> VEC
+    VEC --> RF
+    VEC --> UNET
+    VEC --> IBM --> QKERNEL
+    VEC --> BRAKET --> QKERNEL
+    RF --> HYBRID
+    QKERNEL --> HYBRID
+    HYBRID --> EVAL
+    RF --> ROBUST
+    EVAL --> ROBUST
+
+    CONN -.logs.-> LOG
+    CAL -.logs.-> LOG
+    VEC -.logs.-> LOG
+    RF -.logs.-> LOG
+    UNET -.logs.-> LOG
+    QKERNEL -.logs.-> LOG
+    ROBUST -.logs.-> LOG
+    EVAL -.logs.-> LOG
+    LOG --> RUNS
 ```
-datasets/raw/  --[src/catalog]-->  catalog (real bbox/date/status per source)
-               --[src/processing]--> datasets/processed/ (co-registered, per-AOI tiles)
-               --[src/fusion]-----> stacked multi-modal tensor (or late-fusion encoders)
-               --[src/processing/tiling]--> datasets/exports/ (train/val/test patches)
-               --[src/ai/classic | src/ai/quantum]--> trained model
-               --[src/ai/robustness]--> datasets/reports/robustness_*.json
-```
+
+(Source of truth for this diagram is `src/observability/diagram.py: ARCHITECTURE_DIAGRAM` - notebook 07
+prints the same string, so it can't drift out of sync silently.)
 
 ## src/ layout
 
-- **core/** - shared types (`AOI`, `BBox`, `DatasetRecord`, `Tile`), path constants, YAML config loader.
-- **catalog/** - `scanner.py` walks `datasets/raw/`, parses manifests (Sentinel-1/2 XML, WorldCover tile
-  grid, OSM pbf), returns `DatasetRecord` objects. No GDAL dependency - fast enough to run on every API call.
-- **processing/** - one module per modality (`sar.py`, `optical.py`, `dem.py`, `vector.py`, `landcover.py`),
-  plus `coregistration.py` (resample everything to one CRS/grid/resolution) and `tiling.py` (chip + split).
-- **fusion/** - `stacking.py` (early fusion - channel stack), `feature_engineering.py` (GLCM texture,
-  polarimetric ratios - satisfies "spatial and statistical relationships" objective), `late_fusion.py`
-  (per-modality encoders merged before the segmentation head, PyTorch).
+- **ingestion/** - `base.py` (interface), `s3_connector.py`, `adls_connector.py`, `gcs_connector.py`,
+  `http_connector.py` (no-SDK public-bucket path - how `sen1floods11` was actually pulled),
+  `local_connector.py`, `factory.py`.
+- **catalog/** - `scanner.py` walks `datasets/raw/`, parses real manifests/metadata per source.
+- **processing/** - `sar.py` (Lee speckle filter, linear-to-dB conversion).
+- **fusion/** - `feature_engineering.py` (polarimetric ratio/difference, local texture stats),
+  `pixel_features.py` (the shared 6-feature vector used by both classical and quantum models -
+  `vv`, `vh`, `ratio`, `difference`, `vv_local_mean`, `vv_local_std`).
 - **ai/**
-  - `classic/` - U-Net, Dice/Tversky/Combo losses, Random Forest baseline, train/infer loops.
-  - `quantum/` - `qcnn.py` (PennyLane quantum conv layer), `quantum_kernel.py` (quantum-kernel SVM),
-    `hybrid_unet.py` (classical U-Net with a quantum bottleneck block - the quantum layer only touches
-    the smallest feature map, since simulators can't scale to full-resolution qubit counts).
-  - `objectives/registry.py` - pluggable objective definitions (`flood-segmentation`,
-    `landcover-segmentation`) with their class schema and metric set (IoU, F1, boundary-F1, kappa) -
-    this is what "definition of segmentation objectives and performance criteria" resolves to in code.
-  - `robustness/` - perturbation functions (speckle injection, incidence-angle shift, band dropout,
-    Gaussian noise) plus a harness that runs a model against clean + perturbed inputs and reports
-    % degradation per condition - answers "robustness under varying data conditions".
-- **storage/** - backend-agnostic I/O (`local`, `s3`, `azure`, `gcs`) behind one `StorageBackend` interface.
-- **cli/** - `python -m src.cli.main {ingest,preprocess,train,evaluate,predict}`.
-- **api/** - FastAPI service backing the web UI (`apps/web/`): catalog, tiles, inference, experiments routers.
+  - `classic/` - `unet.py` (patch-based segmentation), `losses.py` (`MaskedComboLoss`: BCE+Dice, masked
+    to valid pixels only), `sen1floods11_dataset.py` (real PyTorch `Dataset` over the downloaded chips -
+    masks both the label's `-1` no-data convention and independent NaN/Inf pixels in the raw S1 GeoTIFFs).
+  - `objectives/registry.py` - pluggable objective definitions + metrics (IoU, F1, boundary-F1, kappa).
+  - `robustness/` - speckle/noise/dropout perturbations + an evaluation harness
+    (`run_robustness_suite`, exercised by notebook `08`).
+- **qml/** - `ibm_quantum.py` (real `QiskitRuntimeService` connection, local `AerSimulator` fallback),
+  `braket_quantum.py` (real `AwsDevice` connection, local `LocalSimulator` fallback),
+  `hybrid_classifier.py` (`QuantumKernelSVM` - backend-selectable, same interface either way).
+- **observability/** - `run_logger.py` (`RunLogger`, structured per-stage JSON logs),
+  `diagram.py` (this architecture diagram, as code).
 
-## Web UI (`apps/web/`)
+## Platform layer (src/api/, src/auth/, src/jobs/, src/registry/, src/graph/, src/pipeline/)
 
-React + Vite + TypeScript, MapLibre for the map view, recharts for the experiment dashboard. Talks to
-`src/api` over `/api/*` (Vite dev proxy to `localhost:8000`). Four pages: Map, Dataset Catalog, Run
-Inference, Experiments - see the running instructions in the repo root README.
+Everything above is the ML pipeline; this is the real service wrapped around it, exposed by `src/api/`
+(FastAPI) and consumed by `apps/web/` (React). See the "Web UI" section of the top-level
+[README.md](../README.md) for the full breakdown - in short: self-service auth (`src/auth/`), a job engine
+that runs notebooks as real subprocesses (`src/jobs/`), a versioned model registry with restore
+(`src/registry/`), auto-retrain-on-new-data (`src/pipeline/`), and a knowledge graph built only from
+relationships the platform actually recorded (`src/graph/`). `Dockerfile.api`, `apps/web/Dockerfile`, and
+`.github/workflows/ci.yml` build and test both images - no deploy step, since there's no configured target
+to deploy to.
 
 ## Running
 
 ```powershell
-# backend
 .\.venv\Scripts\pip install -r requirements.txt
-.\.venv\Scripts\python -m uvicorn src.api.main:app --reload --port 8000
+.\.venv\Scripts\pip install -r requirements-quantum.txt   # needed for notebooks 05/06
 
-# frontend
-cd apps\web && npm install && npm run dev
-
-# CLI
-.\.venv\Scripts\python -m src.cli.main ingest
-
-# tests
-.\.venv\Scripts\python -m pytest tests/ -q
-
-# quantum stack (only needed for src/ai/quantum)
-.\.venv\Scripts\pip install -r requirements-quantum.txt
+.\.venv\Scripts\jupyter lab notebooks/
 ```
 
-## What's real vs. stubbed today
+Run `01` through `09` in order. `sen1floods11` (446 hand-labeled SAR flood chips, already downloaded to
+`datasets/raw/sen1floods11/`) is the dataset every notebook actually operates on - see
+`config/platform.yaml` for exactly which environment variables unlock real IBM Quantum / AWS Braket
+hardware instead of the local-simulator default.
 
-Real and tested against actual data: the catalog scanner (all 6 sources, including the populated
-`sen1floods11`), the objectives/metrics registry, `tiling.chip()`, and the config loader - all verified
-against real `sen1floods11` GeoTIFFs, not just synthetic arrays. `processing/sar.py` /`optical.py`/
-`dem.py`/`landcover.py`/`vector.py` and `coregistration.py` are implemented but not yet exercised
-against real rasters - not needed for `sen1floods11` (already co-registered), still blocked for the four
-standalone scenes by the AOI-overlap issue above. `ai/classic/*` and `ai/quantum/*` (U-Net, hybrid
-quantum model, training loops) are implemented but not yet trained against real data - `sen1floods11` is
-now unblocked for this, next step is wiring `PatchDataset` to it directly. The API's `catalog` router is
-wired to the real scanner; `tiles`, `inference`, and `experiments` routers still return stub/placeholder
-data pending a trained model.
+- `08_robustness_sweep.ipynb` - systematic robustness evaluation (5 perturbations x 5 flood events).
+- `09_patch_unet.ipynb` - trains the patch-based U-Net (`src/ai/classic/unet.py`) with `MaskedComboLoss`.
+
+## Honesty about scope
+
+- The quantum kernel method is `O(n^2)` circuit evaluations - notebooks 05/06 deliberately use small
+  subsamples (tens of points), not full-image pixel counts. That's a real, current limitation of quantum
+  kernel methods on today's simulators/hardware queue times, not a shortcut taken for this repo.
+- Notebooks 05/06 default to `FORCE_SIMULATION = True` - every QML result logged by this pipeline is
+  explicitly tagged `is_real_hardware: False` (local `AerSimulator` / `LocalSimulator`) by default. The
+  same code was verified earlier against real IBM Quantum hardware (`ibm_fez`, 156 qubits, real job
+  submissions) with the batched `compute_gram_matrix` path - set `FORCE_SIMULATION = False` and supply
+  credentials per `config/platform.yaml` to route through real hardware again; nothing else changes.
+- `datasets/raw/sentinel1/`, `sentinel2/`, `dem/`, `worldcover/` (the four non-`sen1floods11` sources)
+  do not spatially overlap - confirmed by parsing their footprints. They're not used by this pipeline for
+  that reason; `sen1floods11`'s pre-aligned chips are the actual data source throughout.
+- ~9% of `sen1floods11` chips have NaN/Inf pixels in the raw Sentinel-1 GeoTIFF itself, independent of and
+  not always coincident with the label's own `-1` no-data convention (confirmed by direct inspection,
+  e.g. `Pakistan_43105` has 733 NaN S1 pixels, none of which coincide with a `-1` label). All feature
+  extraction, dataset loading, and robustness evaluation now mask on `(label != -1) & ~s1_nodata_mask`,
+  not on the label alone - see `s1_nodata_mask()` in `src/ai/classic/sen1floods11_dataset.py`.
