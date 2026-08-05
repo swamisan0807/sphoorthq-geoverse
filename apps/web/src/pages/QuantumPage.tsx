@@ -6,10 +6,13 @@ export default function QuantumPage() {
   const [selectedEvent, setSelectedEvent] = useState("");
   const [chipIds, setChipIds] = useState<string[]>([]);
   const [chipId, setChipId] = useState("");
-  const [backend, setBackend] = useState<"ibm" | "braket">("ibm");
+  const [backend] = useState<"ibm">("ibm");
   const [nTrain, setNTrain] = useState(12);
   const [nTest, setNTest] = useState(6);
-  const [forceSimulation, setForceSimulation] = useState(true);
+  const [mode, setMode] = useState<"sim" | "real">("sim");
+  const [ibmChannel, setIbmChannel] = useState("ibm_cloud");
+  const [ibmInstance, setIbmInstance] = useState("");
+  const [ibmToken, setIbmToken] = useState("");
   const [result, setResult] = useState<QuantumResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +43,10 @@ export default function QuantumPage() {
         backend,
         n_train: nTrain,
         n_test: nTest,
-        force_simulation: forceSimulation,
+        force_simulation: mode === "sim",
+        ...(mode === "real"
+          ? { ibm_channel: ibmChannel, ibm_instance: ibmInstance, ibm_token: ibmToken }
+          : {}),
       });
       setResult(r);
     } catch (e) {
@@ -59,10 +65,10 @@ export default function QuantumPage() {
       <p className="hint">
         Trains a real quantum-kernel SVM (Havlicek et al. 2019) fresh on a small balanced pixel sample
         from the chosen chip - a ZZFeatureMap-style angle-encoding circuit computes pixel-pair similarity
-        on IBM Quantum (Qiskit) or AWS Braket, a classical SVM classifies on top of that quantum-computed
-        kernel matrix. There is no persisted quantum model file, unlike RF/U-Net on the Inference tab -
-        every run here submits real circuits (to a local simulator by default, or real hardware if you
-        uncheck simulation and have credentials configured).
+        on IBM Quantum (Qiskit), a classical SVM classifies on top of that quantum-computed kernel matrix.
+        There is no persisted quantum model file, unlike RF/U-Net on the Inference tab - every run here
+        submits real circuits (to a local simulator by default, or to your own real IBM Quantum hardware
+        if you pick "Real IBM Hardware" below and supply an account).
       </p>
 
       <div className="controls">
@@ -88,10 +94,7 @@ export default function QuantumPage() {
         </label>
         <label>
           backend
-          <select value={backend} onChange={(e) => setBackend(e.target.value as "ibm" | "braket")}>
-            <option value="ibm">IBM Quantum (Qiskit)</option>
-            <option value="braket">AWS Braket</option>
-          </select>
+          <input type="text" value="IBM Quantum (Qiskit)" disabled />
         </label>
         <label>
           n_train
@@ -114,17 +117,59 @@ export default function QuantumPage() {
           />
         </label>
         <label>
-          <input
-            type="checkbox"
-            checked={forceSimulation}
-            onChange={(e) => setForceSimulation(e.target.checked)}
-          />
-          {" "}force simulation (no real hardware)
+          run on
+          <select value={mode} onChange={(e) => setMode(e.target.value as "sim" | "real")}>
+            <option value="sim">Qiskit Simulation</option>
+            <option value="real">Real IBM Hardware</option>
+          </select>
         </label>
+
+        {mode === "real" && (
+          <>
+            <label>
+              channel
+              <input
+                type="text"
+                value={ibmChannel}
+                onChange={(e) => setIbmChannel(e.target.value)}
+                placeholder="ibm_cloud"
+              />
+            </label>
+            <label>
+              instance CRN
+              <input
+                type="text"
+                value={ibmInstance}
+                onChange={(e) => setIbmInstance(e.target.value)}
+                placeholder="crn:v1:bluemix:..."
+              />
+            </label>
+            <label>
+              API token
+              <input
+                type="password"
+                value={ibmToken}
+                onChange={(e) => setIbmToken(e.target.value)}
+                placeholder="hidden, sent only for this run"
+                autoComplete="off"
+              />
+            </label>
+          </>
+        )}
+
         <button onClick={run} disabled={loading || !chipId}>
           {loading ? "running circuits..." : "run quantum kernel SVM"}
         </button>
       </div>
+
+      {mode === "real" && (
+        <p className="hint">
+          Connects with this account for this run only - the token is sent over the request, used once to
+          call <code>QiskitRuntimeService</code>, and never written to disk (same channel/token/instance
+          triple as <code>test_ibm_connection.py</code>). Leave blank to fall back to
+          IBM_QUANTUM_TOKEN/IBM_QUANTUM_INSTANCE configured on the server, if any.
+        </p>
+      )}
 
       <p className="hint">
         this run submits {nFit} fit() circuits + {nPredict} predict() circuits ={" "}

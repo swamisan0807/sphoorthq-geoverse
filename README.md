@@ -1,10 +1,10 @@
 # SphoorthiQ — SAR Flood Segmentation, Classical + Quantum ML Platform
 
 Cloud-agnostic ingestion (S3 / Azure ADLS Gen2 / GCS / public HTTPS / local), notebook-driven processing
-and feature engineering, a classical ML (Random Forest + U-Net) + quantum ML hybrid (real IBM Quantum +
-AWS Braket connectivity, local-simulator by default), a systematic robustness sweep, per-stage
-observability logging, and a full web platform (self-service auth, job engine, model registry, quantum
-inference) on top.
+and feature engineering, a classical ML (Random Forest + U-Net) + quantum ML hybrid (real IBM Quantum
+connectivity, local-simulator by default), a systematic robustness sweep, per-stage observability
+logging, and a full web platform (self-service auth, job engine, model registry, quantum inference) on
+top.
 
 Built for Thales' **SAR Image Analysis** track - Quantum Innovation Summit 2026, Algorithm Design
 Competition.
@@ -22,7 +22,7 @@ architecture/dataflow diagram.
 ## Quickstart
 
 ```powershell
-.\.venv\Scripts\pip install -r requirements.txt   # one file - everything, including qiskit/Braket for notebooks 05/06
+.\.venv\Scripts\pip install -r requirements.txt   # one file - everything, including qiskit for notebooks 05/06
 
 .\.venv\Scripts\jupyter lab notebooks/
 ```
@@ -32,11 +32,10 @@ Run `notebooks/01_ingest.ipynb` through `09_patch_unet.ipynb` in order. They ope
 that gets there).
 
 - `04_classical_ml.ipynb` - Random Forest (pixel-wise).
-- `05_qml_ibm_braket.ipynb` / `06_hybrid_ensemble_evaluation.ipynb` - quantum kernel SVM + hybrid vote.
-  Default to `FORCE_SIMULATION = True` - local simulators only, no real hardware, no queue, no cost.
+- `05_qml_ibm.ipynb` / `06_hybrid_ensemble_evaluation.ipynb` - quantum kernel SVM + hybrid vote.
+  Default to `FORCE_SIMULATION = True` - local simulator only, no real hardware, no queue, no cost.
   Set `FORCE_SIMULATION = False` and supply credentials (see
-  [config/platform.yaml](config/platform.yaml)) to route the same code through real IBM Quantum / AWS
-  Braket hardware.
+  [config/platform.yaml](config/platform.yaml)) to route the same code through real IBM Quantum hardware.
 - `08_robustness_sweep.ipynb` - 5 perturbation types x 5 flood events, systematic degradation matrix.
 - `09_patch_unet.ipynb` - patch-based U-Net training.
 

@@ -101,10 +101,15 @@ export interface InferResponse {
 
 export interface QuantumRequest {
   chip_id: string;
-  backend: "ibm" | "braket";
+  backend: "ibm";
   n_train: number;
   n_test: number;
   force_simulation: boolean;
+  // Only sent when force_simulation is false - connects with this account
+  // for this one run instead of requiring server-side env vars.
+  ibm_token?: string;
+  ibm_instance?: string;
+  ibm_channel?: string;
 }
 
 export interface QuantumResponse {

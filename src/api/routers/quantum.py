@@ -18,7 +18,7 @@ from src.ai.objectives.registry import evaluate
 from src.api.routers.auth import get_current_user
 from src.fusion.pixel_features import build_feature_cube, cube_to_pixel_table
 from src.jobs import engine as jobs_engine
-from src.qml import braket_quantum, ibm_quantum
+from src.qml import ibm_quantum
 from src.qml.hybrid_classifier import QuantumBackend, QuantumKernelSVM
 
 router = APIRouter(prefix="/api/quantum", tags=["quantum"])
@@ -29,10 +29,19 @@ MAX_N_TEST = 12
 
 class QuantumRequest(BaseModel):
     chip_id: str
-    backend: str = "ibm"  # "ibm" | "braket"
+    backend: str = "ibm"  # "ibm"
     n_train: int = 16
     n_test: int = 8
     force_simulation: bool = True
+    # Only used when force_simulation is False - lets a caller connect with
+    # their own IBM Quantum account for this one run instead of requiring
+    # IBM_QUANTUM_TOKEN/IBM_QUANTUM_INSTANCE to already be set on the server
+    # (same channel/token/instance triple as QiskitRuntimeService itself -
+    # see test_ibm_connection.py for the equivalent standalone CLI check).
+    # Never persisted: not written to disk, not included in job history.
+    ibm_token: str | None = None
+    ibm_instance: str | None = None
+    ibm_channel: str | None = None
 
 
 class QuantumResponse(BaseModel):
@@ -92,26 +101,39 @@ def run_quantum_kernel_svm(req: QuantumRequest, username: str = Depends(get_curr
             f"n_train capped at {MAX_N_TRAIN}, n_test at {MAX_N_TEST} to keep this request interactive "
             "- the quantum kernel is O(n^2) circuit evaluations, a real cost of the method",
         )
-    if req.backend not in ("ibm", "braket"):
-        raise HTTPException(400, f"unknown backend '{req.backend}', expected 'ibm' or 'braket'")
+    if req.backend != "ibm":
+        raise HTTPException(400, f"unknown backend '{req.backend}', expected 'ibm'")
 
     x_train, y_train, x_test, y_test = _balanced_sample(req.chip_id, req.n_train, req.n_test)
 
     start = time.time()
-    if req.backend == "ibm":
-        service = None if req.force_simulation else ibm_quantum.get_ibm_service()
-        is_real_hardware = service is not None
-        backend_name = (
-            "aer_simulator (local fallback)"
-            if service is None
-            else ibm_quantum.pick_backend(service, min_qubits=x_train.shape[1]).name
-        )
-        model = QuantumKernelSVM(backend=QuantumBackend.IBM, service=service)
+    service = None
+    if not req.force_simulation:
+        try:
+            service = ibm_quantum.get_ibm_service(
+                token=req.ibm_token, channel=req.ibm_channel, instance=req.ibm_instance
+            )
+        except Exception as e:
+            # A bad/expired token, wrong instance CRN, etc. raise here - surface
+            # the real reason instead of a bare 500, same spirit as
+            # test_ibm_connection.py's "Connection failed: {e}" message.
+            raise HTTPException(400, f"IBM Quantum connection failed: {e}")
+        if service is None:
+            raise HTTPException(
+                400,
+                "real hardware was requested but no IBM Quantum credentials are available - "
+                "enter an API token (and instance CRN) in the Real Hardware fields, or set "
+                "IBM_QUANTUM_TOKEN / IBM_QUANTUM_INSTANCE on the server",
+            )
+    is_real_hardware = service is not None
+    if service is None:
+        backend_name = "aer_simulator (local fallback)"
     else:
-        device = None if req.force_simulation else braket_quantum.get_braket_device()
-        is_real_hardware = device is not None and "LocalSimulator" not in type(device).__name__
-        backend_name = "LocalSimulator" if device is None else type(device).__name__
-        model = QuantumKernelSVM(backend=QuantumBackend.BRAKET, device=device)
+        try:
+            backend_name = ibm_quantum.pick_backend(service, min_qubits=x_train.shape[1]).name
+        except Exception as e:
+            raise HTTPException(400, f"IBM Quantum connected, but couldn't pick a backend: {e}")
+    model = QuantumKernelSVM(backend=QuantumBackend.IBM, service=service)
 
     model.fit(x_train, y_train)
     y_pred = model.predict(x_test)

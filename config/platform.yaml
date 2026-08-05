@@ -22,10 +22,6 @@ qml:
     env: [IBM_QUANTUM_TOKEN]
     note: "get a free token at https://quantum.ibm.com. Without it, src/qml/ibm_quantum.py falls back to a local AerSimulator - explicitly logged as is_real_hardware: False."
     channel: ibm_quantum
-  braket:
-    env: [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, BRAKET_DEVICE_ARN]
-    note: "BRAKET_DEVICE_ARN selects the device - a managed simulator (e.g. SV1) or a real QPU (IonQ/Rigetti/IQM). Without it, src/qml/braket_quantum.py falls back to Braket's LocalSimulator - explicitly logged as is_real_hardware: False."
-    example_arn: "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
 
 auth:
   forgot_password_email:

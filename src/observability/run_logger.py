@@ -1,7 +1,7 @@
 """Structured pipeline observability: every notebook stage (ingest, process,
-feature-engineer, train classical, train QML-IBM, train QML-Braket,
-evaluate) reports through the same RunLogger, producing one JSON record per
-run under datasets/reports/runs/. This is what lets you answer "what
+feature-engineer, train classical, train QML-IBM, evaluate) reports through
+the same RunLogger, producing one JSON record per run under
+datasets/reports/runs/. This is what lets you answer "what
 actually happened in this pipeline run, how long did each stage take, what
 did it operate on, and what came out" after the fact - the observability
 requirement - without bolting on a separate monitoring stack.

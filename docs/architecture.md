@@ -12,10 +12,9 @@ computational efficiency in complex imaging environments" via a classical ML + q
    hidden service. Every stage is inspectable and re-runnable.
 3. **ML + QML hybrid**: a classical Random Forest (pixel-wise, notebook `04`) and U-Net (patch-wise,
    notebook `09`) baseline (`src/ai/classic/`) and a quantum kernel SVM that connects to real
-   **IBM Quantum** (via `qiskit-ibm-runtime`'s `QiskitRuntimeService`) and real **AWS Braket**
-   (via `AwsDevice`) - `src/qml/`. Results from both feed a hybrid ensemble (notebook `06`).
-   Notebooks `05`/`06` default to `FORCE_SIMULATION = True` (local `AerSimulator`/`LocalSimulator`,
-   no cloud calls) - flip that flag to route the same code through real hardware.
+   **IBM Quantum** (via `qiskit-ibm-runtime`'s `QiskitRuntimeService`) - `src/qml/`. Results from both
+   feed a hybrid ensemble (notebook `06`). Notebooks `05`/`06` default to `FORCE_SIMULATION = True`
+   (local `AerSimulator`, no cloud calls) - flip that flag to route the same code through real hardware.
 4. **Observability**: every notebook stage logs through `RunLogger` (`src/observability/`) to
    `datasets/reports/runs/*.json` - timing, status, metrics, per stage, per run. Notebook `07` renders
    that history plus the architecture diagram below.
@@ -56,7 +55,6 @@ flowchart TB
 
     subgraph QUANTUM["Quantum ML - src/qml\n(FORCE_SIMULATION default)"]
         IBM["IBM Quantum Runtime\n(QiskitRuntimeService / AerSimulator)"]
-        BRAKET["AWS Braket\n(AwsDevice / LocalSimulator)"]
         QKERNEL["Quantum kernel SVM\n(batched gram-matrix jobs)"]
     end
 
@@ -78,7 +76,6 @@ flowchart TB
     VEC --> RF
     VEC --> UNET
     VEC --> IBM --> QKERNEL
-    VEC --> BRAKET --> QKERNEL
     RF --> HYBRID
     QKERNEL --> HYBRID
     HYBRID --> EVAL
@@ -117,8 +114,7 @@ prints the same string, so it can't drift out of sync silently.)
   - `robustness/` - speckle/noise/dropout perturbations + an evaluation harness
     (`run_robustness_suite`, exercised by notebook `08`).
 - **qml/** - `ibm_quantum.py` (real `QiskitRuntimeService` connection, local `AerSimulator` fallback),
-  `braket_quantum.py` (real `AwsDevice` connection, local `LocalSimulator` fallback),
-  `hybrid_classifier.py` (`QuantumKernelSVM` - backend-selectable, same interface either way).
+  `hybrid_classifier.py` (`QuantumKernelSVM` wrapping it behind a stable interface).
 - **observability/** - `run_logger.py` (`RunLogger`, structured per-stage JSON logs),
   `diagram.py` (this architecture diagram, as code).
 
@@ -137,15 +133,15 @@ on one port (see README.md "Deploy"). `.github/workflows/ci.yml` lints and runs 
 ## Running
 
 ```powershell
-.\.venv\Scripts\pip install -r requirements.txt   # one file - everything, including qiskit/Braket for notebooks 05/06
+.\.venv\Scripts\pip install -r requirements.txt   # one file - everything, including qiskit for notebooks 05/06
 
 .\.venv\Scripts\jupyter lab notebooks/
 ```
 
 Run `01` through `09` in order. `sen1floods11` (446 hand-labeled SAR flood chips, already downloaded to
 `datasets/raw/sen1floods11/`) is the dataset every notebook actually operates on - see
-`config/platform.yaml` for exactly which environment variables unlock real IBM Quantum / AWS Braket
-hardware instead of the local-simulator default.
+`config/platform.yaml` for exactly which environment variables unlock real IBM Quantum hardware instead
+of the local-simulator default.
 
 - `08_robustness_sweep.ipynb` - systematic robustness evaluation (5 perturbations x 5 flood events).
 - `09_patch_unet.ipynb` - trains the patch-based U-Net (`src/ai/classic/unet.py`) with `MaskedComboLoss`.
@@ -156,10 +152,10 @@ hardware instead of the local-simulator default.
   subsamples (tens of points), not full-image pixel counts. That's a real, current limitation of quantum
   kernel methods on today's simulators/hardware queue times, not a shortcut taken for this repo.
 - Notebooks 05/06 default to `FORCE_SIMULATION = True` - every QML result logged by this pipeline is
-  explicitly tagged `is_real_hardware: False` (local `AerSimulator` / `LocalSimulator`) by default. The
-  same code was verified earlier against real IBM Quantum hardware (`ibm_fez`, 156 qubits, real job
-  submissions) with the batched `compute_gram_matrix` path - set `FORCE_SIMULATION = False` and supply
-  credentials per `config/platform.yaml` to route through real hardware again; nothing else changes.
+  explicitly tagged `is_real_hardware: False` (local `AerSimulator`) by default. The same code was
+  verified earlier against real IBM Quantum hardware (`ibm_fez`, 156 qubits, real job submissions) with
+  the batched `compute_gram_matrix` path - set `FORCE_SIMULATION = False` and supply credentials per
+  `config/platform.yaml` to route through real hardware again; nothing else changes.
 - `datasets/raw/sentinel1/`, `sentinel2/`, `dem/`, `worldcover/` (the four non-`sen1floods11` sources)
   do not spatially overlap - confirmed by parsing their footprints. They're not used by this pipeline for
   that reason; `sen1floods11`'s pre-aligned chips are the actual data source throughout.

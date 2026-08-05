@@ -34,7 +34,6 @@ flowchart TB
 
     subgraph QUANTUM["Quantum ML - src/qml\\n(FORCE_SIMULATION default)"]
         IBM["IBM Quantum Runtime\\n(QiskitRuntimeService / AerSimulator)"]
-        BRAKET["AWS Braket\\n(AwsDevice / LocalSimulator)"]
         QKERNEL["Quantum kernel SVM\\n(batched gram-matrix jobs)"]
     end
 
@@ -56,7 +55,6 @@ flowchart TB
     VEC --> RF
     VEC --> UNET
     VEC --> IBM --> QKERNEL
-    VEC --> BRAKET --> QKERNEL
     RF --> HYBRID
     QKERNEL --> HYBRID
     HYBRID --> EVAL

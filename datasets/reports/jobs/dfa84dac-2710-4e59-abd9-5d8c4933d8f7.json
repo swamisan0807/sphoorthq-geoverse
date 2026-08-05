@@ -1,0 +1,28 @@
+{
+  "job_id": "dfa84dac-2710-4e59-abd9-5d8c4933d8f7",
+  "notebook": "quantum kernel SVM: Ghana_103272 (ibm)",
+  "status": "success",
+  "triggered_by": "qatest_1785948113",
+  "started_at": 1785948127.550317,
+  "ended_at": 1785948134.570317,
+  "returncode": 0,
+  "log_tail": "",
+  "kind": "quantum",
+  "extra": {
+    "chip_id": "Ghana_103272",
+    "backend": "ibm",
+    "backend_name": "aer_simulator (local fallback)",
+    "is_real_hardware": false,
+    "n_train": 8,
+    "n_test": 4,
+    "n_fit_circuits": 36,
+    "n_predict_circuits": 32,
+    "metrics": {
+      "iou": 1.0,
+      "f1": 1.0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "boundary_f1": 1.0
+    }
+  }
+}

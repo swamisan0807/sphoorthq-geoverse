@@ -1,6 +1,6 @@
-"""Backend-selectable quantum-kernel classifier for SAR water/not-water
-pixels, combining classical feature engineering with a real quantum kernel
-computed on IBM Quantum or AWS Braket (or a local simulator fallback).
+"""Quantum-kernel classifier for SAR water/not-water pixels, combining
+classical feature engineering with a real quantum kernel computed on IBM
+Quantum (or a local simulator fallback).
 
 This is the ML+QML hybrid: classical feature extraction (src/processing,
 src/features) produces a low-dimensional per-pixel/superpixel feature
@@ -17,19 +17,16 @@ from enum import Enum
 import numpy as np
 from sklearn.svm import SVC
 
-from src.qml import braket_quantum, ibm_quantum
+from src.qml import ibm_quantum
 
 
 class QuantumBackend(str, Enum):
     IBM = "ibm"
-    BRAKET = "braket"
 
 
 def compute_kernel_entry(x1: np.ndarray, x2: np.ndarray, backend: QuantumBackend, **kwargs) -> float:
     if backend == QuantumBackend.IBM:
         return ibm_quantum.quantum_kernel_entry(x1, x2, **kwargs)
-    if backend == QuantumBackend.BRAKET:
-        return braket_quantum.quantum_kernel_entry(x1, x2, **kwargs)
     raise ValueError(f"unknown backend: {backend}")
 
 
@@ -37,7 +34,7 @@ def compute_gram_matrix(
     features: np.ndarray, backend: QuantumBackend, symmetric_input: np.ndarray | None = None, **kwargs
 ) -> np.ndarray:
     """features: (n_samples, n_qubits). Returns the (n, n) quantum kernel
-    Gram matrix, via the batched path (src/qml/{ibm,braket}_quantum.py:
+    Gram matrix, via the batched path (src/qml/ibm_quantum.py:
     compute_gram_matrix_batched) - one real job submission for the whole
     matrix instead of one per pair. Still O(n^2) circuit *evaluations*
     (a fundamental cost of quantum kernel methods), but no longer O(n^2)
@@ -47,8 +44,6 @@ def compute_gram_matrix(
     practical limits on real hardware."""
     if backend == QuantumBackend.IBM:
         return ibm_quantum.compute_gram_matrix_batched(features, symmetric_input, **kwargs)
-    if backend == QuantumBackend.BRAKET:
-        return braket_quantum.compute_gram_matrix_batched(features, symmetric_input, **kwargs)
     raise ValueError(f"unknown backend: {backend}")
 
 
