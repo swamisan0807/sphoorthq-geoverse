@@ -18,30 +18,10 @@ jobs:
           cache: "pip"
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-quantum.txt
-          pip install -r requirements-dev.txt
+        run: pip install -r requirements.txt
 
       - name: Lint (ruff)
         run: ruff check src/ tests/
 
       - name: Smoke tests
         run: pytest tests/ -v
-
-  build-images:
-    runs-on: ubuntu-latest
-    needs: lint-and-test
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build API image
-        run: docker build -f Dockerfile.api -t geoverse-api:ci .
-
-      - name: Build web image
-        run: docker build -t geoverse-web:ci apps/web
-
-      # No deploy step here: this repo has no configured container
-      # registry or deployment target credentials. Building both images
-      # (validated above) is the real, honest scope of "CI/CD" without
-      # fabricating a deploy step that has nothing to actually deploy to.

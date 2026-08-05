@@ -129,15 +129,15 @@ Everything above is the ML pipeline; this is the real service wrapped around it,
 [README.md](../README.md) for the full breakdown - in short: self-service auth (`src/auth/`), a job engine
 that runs notebooks as real subprocesses (`src/jobs/`), a versioned model registry with restore
 (`src/registry/`), auto-retrain-on-new-data (`src/pipeline/`), and a knowledge graph built only from
-relationships the platform actually recorded (`src/graph/`). `Dockerfile.api`, `apps/web/Dockerfile`, and
-`.github/workflows/ci.yml` build and test both images - no deploy step, since there's no configured target
-to deploy to.
+relationships the platform actually recorded (`src/graph/`). No containers: for dev, `src/api/` runs
+directly via `uvicorn` and `apps/web/` via `npm run dev` as two processes; for a real deployment,
+`npm run build` produces `apps/web/dist/`, and `src/api/main.py` serves that itself, so it's one process
+on one port (see README.md "Deploy"). `.github/workflows/ci.yml` lints and runs the smoke test suite.
 
 ## Running
 
 ```powershell
-.\.venv\Scripts\pip install -r requirements.txt
-.\.venv\Scripts\pip install -r requirements-quantum.txt   # needed for notebooks 05/06
+.\.venv\Scripts\pip install -r requirements.txt   # one file - everything, including qiskit/Braket for notebooks 05/06
 
 .\.venv\Scripts\jupyter lab notebooks/
 ```

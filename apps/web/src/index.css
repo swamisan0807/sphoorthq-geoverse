@@ -5,12 +5,26 @@
   --fg: #e6e6e9;
   --muted: #8a8f9c;
   --border: #2a2e38;
-  --accent: #4ade80;
+  --accent: #34d399;
+  /* SphoorthiQ brand blue - accent's gradient partner, used for the
+     brand mark, gradient text/buttons, and focus rings */
+  --accent-2: #4f8cf0;
+  --brand-gradient: linear-gradient(90deg, var(--accent-2), var(--accent));
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  /* Fixed status colors - reserved for actual state (never reused as a
+     categorical series color). Always paired with an icon + label in
+     StatusBadge, never color alone: on their own these two fail
+     colorblind-safe separation (classic red/green), same as any
+     good/critical pair - see components using StatusBadge.tsx. */
+  --status-good: #0ca30c;
+  --status-critical: #d03b3b;
 
   font: 15px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
   color-scheme: dark;
   color: var(--fg);
   background: var(--bg);
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
@@ -19,6 +33,14 @@
 
 body {
   margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 
 code {

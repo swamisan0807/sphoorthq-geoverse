@@ -40,6 +40,14 @@ def _init_db(path: Path) -> None:
             )
             """
         )
+        # token_version: bumped on every password change. Password-reset
+        # JWTs embed the version they were issued against (see
+        # src/auth/tokens.issue_reset_token) so a reset link is single-use -
+        # using it bumps the version, which invalidates that link and any
+        # other outstanding ones - without needing a separate token table.
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+        if "token_version" not in cols:
+            conn.execute("ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0")
         conn.commit()
 
 
@@ -88,6 +96,22 @@ def verify_user(username: str, password: str) -> dict | None:
 def get_user(username: str) -> dict | None:
     with _connect() as conn:
         row = conn.execute(
-            "SELECT id, username, created_at FROM users WHERE username = ?", (username,)
+            "SELECT id, username, created_at, token_version FROM users WHERE username = ?", (username,)
         ).fetchone()
         return dict(row) if row else None
+
+
+def set_password(username: str, new_password: str) -> bool:
+    """Overwrites the stored password hash and bumps token_version, which
+    invalidates any outstanding reset link for this user (including the
+    one just used - see the reset-password route). Returns False if the
+    user doesn't exist (caller decides whether to surface that or stay
+    silent - the forgot-password route stays silent to avoid leaking which
+    usernames are registered)."""
+    with _connect() as conn:
+        cur = conn.execute(
+            "UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE username = ?",
+            (_hash_password(new_password), username),
+        )
+        conn.commit()
+        return cur.rowcount > 0

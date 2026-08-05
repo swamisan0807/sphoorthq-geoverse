@@ -29,6 +29,8 @@ def _load_or_create_secret() -> str:
 
 _SECRET = _load_or_create_secret()
 
+RESET_TTL_SECONDS = 15 * 60
+
 
 def issue_token(username: str) -> str:
     now = time.time()
@@ -42,4 +44,43 @@ def decode_token(token: str) -> str | None:
         payload = jwt.decode(token, _SECRET, algorithms=[ALGORITHM])
     except jwt.PyJWTError:
         return None
+    if payload.get("purpose") is not None:
+        # a reset token presented as a session token - reject it
+        return None
     return payload.get("sub")
+
+
+def issue_reset_token(username: str, token_version: int) -> str:
+    """Short-lived, single-purpose token emailed as a password-reset link.
+    Tagged with purpose='reset' so it can never be replayed as a session
+    token (decode_token above rejects anything carrying a purpose claim),
+    and carries the user's current token_version so the route can enforce
+    single-use: src.auth.store.set_password bumps token_version on every
+    reset, so a version mismatch means this exact link was already used
+    (or a newer one was issued since)."""
+    now = time.time()
+    payload = {
+        "sub": username,
+        "iat": now,
+        "exp": now + RESET_TTL_SECONDS,
+        "purpose": "reset",
+        "tv": token_version,
+    }
+    return jwt.encode(payload, _SECRET, algorithm=ALGORITHM)
+
+
+def decode_reset_token(token: str) -> tuple[str, int] | None:
+    """Returns (username, token_version) if this is a valid, unexpired
+    reset token, else None. Caller still has to compare token_version
+    against the user's current one in the DB to enforce single-use."""
+    try:
+        payload = jwt.decode(token, _SECRET, algorithms=[ALGORITHM])
+    except jwt.PyJWTError:
+        return None
+    if payload.get("purpose") != "reset":
+        return None
+    username = payload.get("sub")
+    token_version = payload.get("tv")
+    if username is None or token_version is None:
+        return None
+    return username, token_version

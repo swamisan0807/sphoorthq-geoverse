@@ -27,6 +27,17 @@ qml:
     note: "BRAKET_DEVICE_ARN selects the device - a managed simulator (e.g. SV1) or a real QPU (IonQ/Rigetti/IQM). Without it, src/qml/braket_quantum.py falls back to Braket's LocalSimulator - explicitly logged as is_real_hardware: False."
     example_arn: "arn:aws:braket:::device/quantum-simulator/amazon/sv1"
 
+auth:
+  forgot_password_email:
+    env: [SMTP_HOST, SMTP_USER, SMTP_PASSWORD]
+    optional_env: [SMTP_PORT, SMTP_FROM, SMTP_USE_TLS, WEB_BASE_URL]
+    note: >
+      src/auth/mailer.py sends the reset link over real SMTP (e.g. smtp.gmail.com:587
+      with a Gmail App Password as SMTP_PASSWORD - a regular account password will be
+      rejected). Without these set, it falls back to writing the message to
+      datasets/metadata/outbox/ and the API response includes the reset link directly,
+      so the flow still works end-to-end for local/dev use.
+
 objectives:
   flood-segmentation:
     classes: {0: not_water, 1: water}

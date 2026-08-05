@@ -1,3 +1,0 @@
-# Dev/CI only - not needed to run the app itself.
-pytest
-ruff

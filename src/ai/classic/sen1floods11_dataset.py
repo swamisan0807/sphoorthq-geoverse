@@ -20,14 +20,15 @@ and `valid_mask` below account for this independently of the label mask.
 """
 
 import csv
-from pathlib import Path
 
 import numpy as np
 import rasterio
 import torch
 from torch.utils.data import Dataset
 
-SEN1FLOODS11_ROOT = Path(r"d:\project-raw-data\sphoorthq-geoverse\datasets\raw\sen1floods11")
+from src.core.paths import RAW_DIR
+
+SEN1FLOODS11_ROOT = RAW_DIR / "sen1floods11"
 HAND_LABELED_DIR = SEN1FLOODS11_ROOT / "data" / "flood_events" / "HandLabeled"
 SPLITS_DIR = SEN1FLOODS11_ROOT / "splits" / "flood_handlabeled"
 

@@ -29,6 +29,7 @@ datasets/thumbnails/
 # except real secrets/user data:
 datasets/metadata/users.db
 datasets/metadata/.jwt_secret
+datasets/metadata/outbox/
 datasets/reports/knowledge_graph.json
 
 # Editors / OS

@@ -47,8 +47,16 @@ pyjwt            # session tokens
 networkx         # knowledge graph (events -> chips -> model versions -> metrics)
 
 # ============================
-# Quantum ML (required for notebooks 05/06 - see requirements-quantum.txt)
-# Kept in a separate file: heavy dependency chain (qiskit + Braket SDKs),
-# install speed for the classical-only path matters if you're iterating
-# on ingestion/processing without touching the QML notebooks.
+# Quantum ML (required for notebooks 05/06 + src/qml, src/api/routers/quantum.py)
 # ============================
+qiskit
+qiskit-aer
+qiskit-ibm-runtime
+qiskit-machine-learning
+amazon-braket-sdk           # AWS Braket (src/qml/braket_quantum.py)
+
+# ============================
+# Dev/CI only - not needed to run the app itself
+# ============================
+pytest
+ruff

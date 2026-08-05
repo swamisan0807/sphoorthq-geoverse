@@ -1,0 +1,60 @@
+# Render Blueprint - https://render.com/docs/blueprint-spec
+#
+# Not tested against a live Render deploy (this environment has no Render
+# account/credentials to verify against) - this is the best self-contained
+# config for the repo's actual shape: one process needs both Node (to build
+# apps/web) and Python (to run src/api) with no Docker involved. If the
+# first real deploy's build log turns up something Render-specific that
+# needs adjusting, fix that here.
+#
+# Render's Python native runtime doesn't ship Node, and installing system
+# packages via apt isn't guaranteed available in the build container - the
+# buildCommand below sidesteps both by downloading a self-contained Node
+# tarball into the build workspace rather than relying on a package manager.
+#
+# Real constraint this does NOT solve (see README.md "Deploy" > "Data"):
+# datasets/raw/ (1.7GB SAR imagery) and datasets/processed/ (269MB trained
+# models) are gitignored, not in this repo, and Render's default disk is
+# ephemeral (wiped on every deploy/restart). The service boots and auth
+# works with neither, but Catalog/Inference/Jobs/Quantum/Registry need
+# real data present - see README for how to provision it.
+
+services:
+  - type: web
+    name: sphoorthiq
+    runtime: python
+    plan: free
+    buildCommand: |
+      set -e
+      NODE_VERSION=20.18.1
+      curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz
+      mkdir -p /tmp/node && tar -xJf /tmp/node.tar.xz -C /tmp/node --strip-components=1
+      export PATH="/tmp/node/bin:$PATH"
+      cd apps/web && npm ci && npm run build && cd ../..
+      pip install -r requirements.txt
+    startCommand: uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: JWT_SECRET
+        generateValue: true   # Render generates and persists a real random secret
+      # Optional - only needed for real password-reset emails. Without
+      # these, src/auth/mailer.py falls back to writing the email to
+      # datasets/metadata/outbox/ (ephemeral on Render's free tier - see
+      # the persistent-disk note in README) and returning the link
+      # directly in the API response.
+      # - key: SMTP_HOST
+      #   sync: false
+      # - key: SMTP_USER
+      #   sync: false
+      # - key: SMTP_PASSWORD
+      #   sync: false
+
+    # Uncomment to persist datasets/ (SQLite user DB, JWT secret, job/run
+    # history, and - once provisioned - the raw imagery + trained models)
+    # across deploys and restarts. Render's free plan has no persistent
+    # disks; this needs a paid plan.
+    # disk:
+    #   name: sphoorthiq-data
+    #   mountPath: /opt/render/project/src/datasets
+    #   sizeGB: 10

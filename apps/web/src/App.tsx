@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { api, clearSession, getToken, getUsername, setUnauthorizedHandler } from "./api/client";
 import LoginPage from "./pages/LoginPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import CatalogPage from "./pages/CatalogPage";
 import InferencePage from "./pages/InferencePage";
@@ -49,6 +50,17 @@ function App() {
               }}
             />
           )
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <ResetPasswordPage
+            onAuthed={() => {
+              setAuthed(true);
+              setUsername(getUsername());
+            }}
+          />
         }
       />
       <Route

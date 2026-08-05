@@ -1,4 +1,10 @@
-const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
+// Explicit VITE_API_BASE always wins. Otherwise: in `npm run dev` (two
+// separate servers - Vite on :5173, uvicorn on :8000) default to the local
+// API. In a production build (`npm run build`), default to "" - a
+// same-origin relative path - because src/api/main.py serves this built
+// UI itself, so the deployed app is one process on one port and the
+// browser never needs a different host at all.
+const API_BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? "http://127.0.0.1:8000" : "");
 const TOKEN_STORAGE_KEY = "geoverse_token";
 const USERNAME_STORAGE_KEY = "geoverse_username";
 
@@ -200,6 +206,10 @@ export const api = {
   login: (username: string, password: string) =>
     postJSON<{ token: string; username: string }>("/api/auth/login", { username, password }),
   me: () => getJSON<{ username: string; created_at: number }>("/api/auth/me"),
+  forgotPassword: (username: string) =>
+    postJSON<{ detail: string; dev_reset_link: string | null }>("/api/auth/forgot-password", { username }),
+  resetPassword: (token: string, new_password: string) =>
+    postJSON<{ token: string; username: string }>("/api/auth/reset-password", { token, new_password }),
 
   events: () => getJSON<EventSummary[]>("/api/catalog/events"),
   chips: (split: string, event?: string) =>

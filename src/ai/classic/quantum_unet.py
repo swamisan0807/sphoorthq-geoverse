@@ -8,7 +8,7 @@ trained end-to-end (see quantum_layer.py's docstring for why AdamW alone,
 not a split classical/SPSA optimizer).
 
 Kept out of unet.py on purpose: this module requires
-qiskit-machine-learning (requirements-quantum.txt) - the plain UNet does
+qiskit-machine-learning (requirements.txt) - the plain UNet does
 not, and importing this file pulls that whole dependency chain in.
 """
 

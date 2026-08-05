@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { api, type JobRecord, type NewDataStatus } from "../api/client";
+import StatusBadge from "../components/StatusBadge";
 
 function formatTime(epochSeconds: number): string {
   return new Date(epochSeconds * 1000).toLocaleString();
@@ -152,8 +153,8 @@ export default function JobsPage() {
                   <tr className="run-row" onClick={() => setExpanded(isOpen ? null : j.job_id)}>
                     <td>{j.notebook}</td>
                     <td>{j.kind}</td>
-                    <td className={j.status === "success" ? "ok" : j.status === "failed" ? "failed" : ""}>
-                      {j.status}
+                    <td>
+                      <StatusBadge status={j.status} />
                     </td>
                     <td>{j.triggered_by}</td>
                     <td>{formatTime(j.started_at)}</td>

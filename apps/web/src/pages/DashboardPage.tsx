@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import mermaid from "mermaid";
 import { api, type ModelInfo, type RunRecord } from "../api/client";
+import StatusBadge from "../components/StatusBadge";
 
 mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
 
@@ -49,10 +50,51 @@ export default function DashboardPage() {
     api.models().then(setModels).catch((e) => setError(String(e)));
   }, []);
 
+  const totalModelSize = models?.reduce((sum, m) => sum + m.size_bytes, 0) ?? null;
+  const fullyOkRuns = runs?.filter((r) => r.stages.length > 0 && r.stages.every((s) => s.status === "ok")).length ?? null;
+  const successRate = runs && runs.length > 0 && fullyOkRuns !== null ? Math.round((fullyOkRuns / runs.length) * 100) : null;
+  const lastRun = runs && runs.length > 0 ? runs[0] : null;
+  const lastRunOk = lastRun ? lastRun.stages.every((s) => s.status === "ok") : null;
+
   return (
     <div className="page">
       <h2>Observability Dashboard</h2>
       {error && <p className="error">{error}</p>}
+
+      {(models || runs) && (
+        <section className="stat-grid">
+          <div className="stat-tile">
+            <span className="stat-label">Trained models</span>
+            <span className="stat-value">{models ? models.length : "—"}</span>
+            {totalModelSize !== null && <span className="stat-sub">{formatBytes(totalModelSize)} total</span>}
+          </div>
+          <div className="stat-tile">
+            <span className="stat-label">Recent runs</span>
+            <span className="stat-value">{runs ? runs.length : "—"}</span>
+            <span className="stat-sub">most recently logged</span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-label">Success rate</span>
+            <span className="stat-value">{successRate !== null ? `${successRate}%` : "—"}</span>
+            <span className="stat-sub">
+              {fullyOkRuns ?? 0}/{runs?.length ?? 0} runs fully ok
+            </span>
+          </div>
+          <div className="stat-tile">
+            <span className="stat-label">Last run</span>
+            {lastRun ? (
+              <>
+                <span className="stat-value stat-value-sm">{lastRun.run_name}</span>
+                <span className="stat-sub">
+                  <StatusBadge status={lastRunOk ? "ok" : "failed"} />
+                </span>
+              </>
+            ) : (
+              <span className="stat-value">—</span>
+            )}
+          </div>
+        </section>
+      )}
 
       <section>
         <h3>Saved models</h3>
@@ -99,6 +141,7 @@ export default function DashboardPage() {
               {runs.map((r) => {
                 const duration = r.ended_at ? (r.ended_at - r.started_at).toFixed(1) : "running";
                 const isOpen = expanded === r.run_id;
+                const okCount = r.stages.filter((s) => s.status === "ok").length;
                 return (
                   <Fragment key={r.run_id}>
                     <tr className="run-row" onClick={() => setExpanded(isOpen ? null : r.run_id)}>
@@ -106,7 +149,7 @@ export default function DashboardPage() {
                       <td>{formatTime(r.started_at)}</td>
                       <td>{duration}s</td>
                       <td>
-                        {r.stages.filter((s) => s.status === "ok").length}/{r.stages.length} ok
+                        <StatusBadge status={okCount === r.stages.length ? "ok" : "failed"} /> {okCount}/{r.stages.length}
                       </td>
                       <td>{isOpen ? "▲" : "▼"}</td>
                     </tr>
@@ -126,7 +169,9 @@ export default function DashboardPage() {
                               {r.stages.map((s) => (
                                 <tr key={s.name}>
                                   <td>{s.name}</td>
-                                  <td className={s.status}>{s.status}</td>
+                                  <td>
+                                    <StatusBadge status={s.status} />
+                                  </td>
                                   <td>{s.duration_s ?? "-"}s</td>
                                   <td>
                                     <code>{JSON.stringify(s.metrics)}</code>

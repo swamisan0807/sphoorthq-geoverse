@@ -1,0 +1,28 @@
+{
+  "job_id": "517ff798-79b6-4158-919b-175742cd38fc",
+  "notebook": "quantum kernel SVM: Nigeria_529525 (ibm)",
+  "status": "success",
+  "triggered_by": "swami.datascience0807@gmail.com",
+  "started_at": 1785921944.4964533,
+  "ended_at": 1785921966.6924534,
+  "returncode": 0,
+  "log_tail": "",
+  "kind": "quantum",
+  "extra": {
+    "chip_id": "Nigeria_529525",
+    "backend": "ibm",
+    "backend_name": "aer_simulator (local fallback)",
+    "is_real_hardware": false,
+    "n_train": 12,
+    "n_test": 6,
+    "n_fit_circuits": 78,
+    "n_predict_circuits": 72,
+    "metrics": {
+      "iou": 0.5,
+      "f1": 0.6667,
+      "precision": 0.5,
+      "recall": 1.0,
+      "boundary_f1": 1.0
+    }
+  }
+}

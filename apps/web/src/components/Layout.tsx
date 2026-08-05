@@ -1,4 +1,5 @@
 import { Outlet } from "react-router-dom";
+import { API_BASE } from "../api/client";
 import Sidebar from "./Sidebar";
 import Topbar from "./Topbar";
 
@@ -13,11 +14,11 @@ export default function Layout({ backendUp, username, onLogout }: Props) {
     <div className="shell">
       <Sidebar />
       <div className="shell-main">
-        <Topbar backendUp={backendUp} username={username} onLogout={onLogout} />
+        <Topbar username={username} onLogout={onLogout} />
         <main className="content">
           {backendUp === false && (
             <p className="error">
-              Cannot reach the API at {import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000"}. Start it with:
+              Cannot reach the API{API_BASE ? ` at ${API_BASE}` : ""}. Start it with:
               <br />
               <code>.venv\Scripts\uvicorn src.api.main:app --reload --port 8000</code>
             </p>
