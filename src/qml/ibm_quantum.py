@@ -16,22 +16,52 @@ a real QPU run.
 
 import os
 import time
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 
 import numpy as np
 from qiskit import QuantumCircuit
 from qiskit.circuit.library import ZZFeatureMap
 from qiskit_aer.primitives import Sampler as AerSampler
 
+CONNECT_TIMEOUT_S = 15.0  # bounds account auth + backend-catalog calls
+LEAST_BUSY_TIMEOUT_S = 8.0  # bounds the per-backend queue-status comparison
+JOB_RESULT_TIMEOUT_S = 60.0  # bounds each job.result() wait (queue + execution)
 
-def _get_result_with_retry(job, retries: int = 4, backoff_s: float = 5.0):
+
+def _call_with_timeout(fn, timeout_s: float, *args, **kwargs):
+    """Runs fn in a helper thread and raises TimeoutError if it doesn't
+    finish within timeout_s. IBM Cloud calls (auth, backend listing,
+    queue-status lookups) are real network round trips with no timeout of
+    their own, and a rate-limited/over-quota account can make them hang far
+    longer than a web request should ever block for. Note: on timeout the
+    underlying call keeps running in its thread until it finishes on its
+    own (Python can't forcibly cancel a blocked network call) - this just
+    stops the caller from waiting on it."""
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(fn, *args, **kwargs)
+        try:
+            return future.result(timeout=timeout_s)
+        except FutureTimeoutError:
+            raise TimeoutError(f"{getattr(fn, '__name__', fn)} did not respond within {timeout_s}s")
+
+
+def _get_result_with_retry(job, retries: int = 2, backoff_s: float = 5.0, timeout_s: float = JOB_RESULT_TIMEOUT_S):
     """Real IBM jobs occasionally hit transient network errors (SSL/TLS
     blips) fetching the result of an already-completed job - retrying
     result() re-fetches from the same job, it does not resubmit or consume
-    additional QPU time, so this is safe/free to retry."""
+    additional QPU time, so this is safe/free to retry.
+
+    Each attempt is bounded to timeout_s (RuntimeJobV2.result() takes a
+    native timeout) - a job that can't run at all (account over its usage
+    limit, backend down, etc.) would otherwise block here indefinitely,
+    since result() waits for real queue + execution time with no default
+    cutoff. Raises the underlying job-status error on timeout so the
+    caller sees *why* (e.g. "usage limit"), not a generic hang."""
     last_error = None
     for attempt in range(retries):
         try:
-            return job.result()
+            return job.result(timeout=timeout_s)
         except Exception as e:  # noqa: BLE001
             last_error = e
             if attempt < retries - 1:
@@ -44,7 +74,10 @@ def get_ibm_service(
 ):
     """Returns a live QiskitRuntimeService, or None if neither a saved
     account nor an explicit token is available (caller falls back to a
-    local simulator in that case)."""
+    local simulator in that case). Bounded to CONNECT_TIMEOUT_S - IBM Cloud
+    auth is a real network round trip, and this should fail fast with a
+    clear TimeoutError rather than hang a request indefinitely if the
+    account/API is slow (e.g. rate-limited)."""
     from qiskit_ibm_runtime import QiskitRuntimeService
 
     token = token or os.environ.get("IBM_QUANTUM_TOKEN")
@@ -52,22 +85,42 @@ def get_ibm_service(
     instance = instance or os.environ.get("IBM_QUANTUM_INSTANCE")
 
     if token:
-        return QiskitRuntimeService(channel=channel or "ibm_cloud", token=token, instance=instance)
+        return _call_with_timeout(
+            QiskitRuntimeService, CONNECT_TIMEOUT_S, channel=channel or "ibm_cloud", token=token, instance=instance
+        )
 
     try:
-        return QiskitRuntimeService()  # uses the saved default account, if any
+        return _call_with_timeout(QiskitRuntimeService, CONNECT_TIMEOUT_S)  # uses the saved default account, if any
     except Exception:
         return None
 
 
+def list_backends(service, timeout_s: float = CONNECT_TIMEOUT_S):
+    """Real backend catalog for this account, bounded the same way as
+    get_ibm_service - a plain listing call, no queue-status comparison, so
+    this is the fast half of connecting (see pick_backend for the slower,
+    least-busy-aware half used once a job is actually about to run)."""
+    return _call_with_timeout(service.backends, timeout_s)
+
+
 def pick_backend(service, min_qubits: int, prefer_least_busy: bool = True):
     """Picks a real IBM backend with enough qubits. Raises if none qualify -
-    caller decides whether to fall back to simulation."""
-    candidates = [b for b in service.backends() if b.num_qubits >= min_qubits and not b.simulator]
+    caller decides whether to fall back to simulation.
+
+    prefer_least_busy queries live queue status across every qualifying
+    backend to find the shortest queue - useful, but it's O(n backends)
+    network calls and can be slow (worse on a rate-limited/over-quota
+    account). Bounded to LEAST_BUSY_TIMEOUT_S; if it doesn't answer in
+    time, this falls back to the first qualifying backend instead of
+    blocking the caller - a fast, merely-not-optimal pick beats a hang."""
+    candidates = [b for b in list_backends(service) if b.num_qubits >= min_qubits and not b.simulator]
     if not candidates:
         raise RuntimeError(f"no IBM backend with >= {min_qubits} qubits available on this account")
     if prefer_least_busy:
-        return service.least_busy(min_num_qubits=min_qubits)
+        try:
+            return _call_with_timeout(service.least_busy, LEAST_BUSY_TIMEOUT_S, min_num_qubits=min_qubits)
+        except TimeoutError:
+            pass
     return candidates[0]
 
 
@@ -110,7 +163,7 @@ def run_feature_map(
     sampler = AerSampler()
     job = sampler.run(circuits=[circuit], shots=shots)
     counts = job.result().quasi_dists[0].binary_probabilities()
-    return {"counts": counts, "backend": "aer_simulator (local fallback)", "is_real_hardware": False}
+    return {"counts": counts, "backend": "aer_simulator", "is_real_hardware": False}
 
 
 def _transpile_for_backend(circuit: QuantumCircuit, backend) -> QuantumCircuit:

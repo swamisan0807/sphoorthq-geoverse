@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { api, type EventSummary, type QuantumResponse } from "../api/client";
+import { api, type ConnectResponse, type EventSummary, type QuantumResponse } from "../api/client";
+
+type Phase = "idle" | "connecting" | "connected" | "running";
 
 export default function QuantumPage() {
   const [events, setEvents] = useState<EventSummary[] | null>(null);
@@ -14,8 +16,10 @@ export default function QuantumPage() {
   const [ibmInstance, setIbmInstance] = useState("");
   const [ibmToken, setIbmToken] = useState("");
   const [result, setResult] = useState<QuantumResponse | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [connectInfo, setConnectInfo] = useState<ConnectResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const loading = phase !== "idle";
 
   useEffect(() => {
     api.events().then((evs) => {
@@ -34,9 +38,28 @@ export default function QuantumPage() {
 
   async function run() {
     if (!chipId) return;
-    setLoading(true);
     setError(null);
     setResult(null);
+    setConnectInfo(null);
+
+    if (mode === "real") {
+      setPhase("connecting");
+      try {
+        const c = await api.quantumConnect({
+          ibm_channel: ibmChannel,
+          ibm_instance: ibmInstance,
+          ibm_token: ibmToken,
+        });
+        setConnectInfo(c);
+        setPhase("connected");
+      } catch (e) {
+        setError(String(e));
+        setPhase("idle");
+        return;
+      }
+    }
+
+    setPhase("running");
     try {
       const r = await api.quantumKernelSvm({
         chip_id: chipId,
@@ -52,7 +75,7 @@ export default function QuantumPage() {
     } catch (e) {
       setError(String(e));
     } finally {
-      setLoading(false);
+      setPhase("idle");
     }
   }
 
@@ -158,9 +181,19 @@ export default function QuantumPage() {
         )}
 
         <button onClick={run} disabled={loading || !chipId}>
-          {loading ? "running circuits..." : "run quantum kernel SVM"}
+          {phase === "connecting" && "connecting to IBM Quantum..."}
+          {phase === "connected" && "connected - starting job..."}
+          {phase === "running" && "job running - executing circuits..."}
+          {phase === "idle" && "run quantum kernel SVM"}
         </button>
       </div>
+
+      {connectInfo && (
+        <p className="hint">
+          connected - {connectInfo.n_backends} real backend(s) visible on this account
+          {connectInfo.n_backends > 0 && <> (e.g. {connectInfo.backend_name})</>}
+        </p>
+      )}
 
       {mode === "real" && (
         <p className="hint">
@@ -178,7 +211,14 @@ export default function QuantumPage() {
       </p>
 
       {error && <p className="error">{error}</p>}
-      {loading && <p className="hint">This can take 20-60s on a local simulator, longer on real hardware queue time.</p>}
+      {phase === "connecting" && (
+        <p className="hint">Authenticating with IBM Cloud - usually a few seconds, longer if the account is rate-limited.</p>
+      )}
+      {phase === "running" && (
+        <p className="hint">
+          Circuits executing{mode === "real" ? " on real hardware - can take from seconds to real queue time" : " on a local simulator - usually 20-60s"}.
+        </p>
+      )}
 
       {result && (
         <section>

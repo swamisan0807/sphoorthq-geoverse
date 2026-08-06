@@ -112,6 +112,19 @@ export interface QuantumRequest {
   ibm_channel?: string;
 }
 
+export interface ConnectRequest {
+  ibm_token?: string;
+  ibm_instance?: string;
+  ibm_channel?: string;
+}
+
+export interface ConnectResponse {
+  connected: boolean;
+  channel: string;
+  n_backends: number;
+  backend_name: string;
+}
+
 export interface QuantumResponse {
   chip_id: string;
   backend: string;
@@ -230,6 +243,7 @@ export const api = {
   inferencePreviewPath: (chipId: string, model: string) =>
     `/api/inference/${chipId}/preview.png?model=${model}`,
 
+  quantumConnect: (req: ConnectRequest) => postJSON<ConnectResponse>("/api/quantum/connect", req),
   quantumKernelSvm: (req: QuantumRequest) => postJSON<QuantumResponse>("/api/quantum/kernel-svm", req),
 
   jobNotebooks: () => getJSON<string[]>("/api/jobs/notebooks"),

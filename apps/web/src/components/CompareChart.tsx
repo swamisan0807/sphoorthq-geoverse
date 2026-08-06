@@ -15,9 +15,11 @@ type CompareData = Record<string, Record<string, number>>;
 const COLOR_BY_KEYWORD: [pattern: RegExp, color: string][] = [
   [/random forest/i, "#3987e5"], // slot 1 - blue
   [/u-?net/i, "#d95926"], // slot 2 - orange
-  [/quantum/i, "#199e70"], // slot 3 - aqua
+  [/quantum.*simulator/i, "#199e70"], // slot 3 - aqua
+  [/quantum.*real hardware/i, "#c98500"], // slot 4 - yellow
+  [/quantum/i, "#199e70"], // fallback for an unlabeled quantum series - aqua
 ];
-const FALLBACK_COLORS = ["#c98500", "#d55181", "#9085e9", "#e66767"]; // slots 4-7, for any unexpected extra series
+const FALLBACK_COLORS = ["#d55181", "#9085e9", "#e66767"]; // slots 5-7, for any unexpected extra series
 
 function colorForModel(name: string, fallbackIndex: number): string {
   for (const [pattern, color] of COLOR_BY_KEYWORD) {

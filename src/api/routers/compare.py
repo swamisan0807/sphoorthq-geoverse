@@ -24,9 +24,13 @@ def _strip_prefix(metrics: dict) -> dict:
     return {k.removeprefix("valid_"): v for k, v in metrics.items()}
 
 
-def _latest_quantum_metrics() -> dict | None:
-    for job in list_jobs(limit=50):
-        if job.kind == "quantum" and job.status == "success":
+def _latest_quantum_metrics(is_real_hardware: bool) -> dict | None:
+    """Most recent successful quantum job that ran on the given kind of
+    backend - simulator and real hardware are tracked as separate series so
+    a real-hardware run is never averaged into or mistaken for a simulator
+    result (the whole point of is_real_hardware being logged per job)."""
+    for job in list_jobs(limit=100):
+        if job.kind == "quantum" and job.status == "success" and job.extra.get("is_real_hardware") == is_real_hardware:
             return job.extra.get("metrics")
     return None
 
@@ -39,9 +43,12 @@ def _collect_series() -> dict[str, dict]:
     unet_manifest = model_registry.get_current_manifest("patch_unet")
     if unet_manifest:
         series["U-Net (classical)"] = _strip_prefix(unet_manifest["metrics"])
-    quantum_metrics = _latest_quantum_metrics()
-    if quantum_metrics:
-        series["Quantum kernel SVM"] = quantum_metrics
+    sim_metrics = _latest_quantum_metrics(is_real_hardware=False)
+    if sim_metrics:
+        series["Quantum kernel SVM (simulator)"] = sim_metrics
+    real_metrics = _latest_quantum_metrics(is_real_hardware=True)
+    if real_metrics:
+        series["Quantum kernel SVM (real hardware)"] = real_metrics
     return series
 
 
@@ -63,7 +70,10 @@ def comparison_plot():
         n_models = len(series)
         bar_width = 0.8 / n_models
         x = range(len(METRIC_ORDER))
-        colors = ["#4ade80", "#60a5fa", "#f472b6", "#facc15"]
+        # Validated dark-mode categorical palette (dataviz skill, slots 1-4:
+        # blue/orange/aqua/yellow) - same fixed order/colors as CompareChart.tsx
+        # so a given series always reads the same hue in both renderings.
+        colors = ["#3987e5", "#d95926", "#199e70", "#c98500"]
 
         for i, (model_name, metrics) in enumerate(series.items()):
             values = [metrics.get(m, 0.0) for m in METRIC_ORDER]

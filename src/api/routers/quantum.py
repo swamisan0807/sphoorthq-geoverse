@@ -44,6 +44,19 @@ class QuantumRequest(BaseModel):
     ibm_channel: str | None = None
 
 
+class ConnectRequest(BaseModel):
+    ibm_token: str | None = None
+    ibm_instance: str | None = None
+    ibm_channel: str | None = None
+
+
+class ConnectResponse(BaseModel):
+    connected: bool
+    channel: str
+    n_backends: int
+    backend_name: str
+
+
 class QuantumResponse(BaseModel):
     chip_id: str
     backend: str
@@ -93,6 +106,37 @@ def _balanced_sample(chip_id: str, n_train: int, n_test: int, seed: int = 7):
     )
 
 
+@router.post("/connect", response_model=ConnectResponse)
+def connect_ibm_quantum(req: ConnectRequest, username: str = Depends(get_current_user)):
+    """Fast pre-flight check for the Real Hardware picker: authenticates
+    and lists the account's real backends, but never queries per-backend
+    queue status (that's the slow part, done only once a job actually
+    submits - see pick_backend) so this comes back in a few seconds even
+    though it's a genuine network round trip, not a canned response."""
+    try:
+        service = ibm_quantum.get_ibm_service(token=req.ibm_token, channel=req.ibm_channel, instance=req.ibm_instance)
+    except Exception as e:
+        raise HTTPException(400, f"IBM Quantum connection failed: {e}")
+    if service is None:
+        raise HTTPException(
+            400,
+            "no IBM Quantum credentials available - enter an API token (and instance CRN), "
+            "or set IBM_QUANTUM_TOKEN / IBM_QUANTUM_INSTANCE on the server",
+        )
+    try:
+        backends = ibm_quantum.list_backends(service)
+    except Exception as e:
+        raise HTTPException(400, f"connected, but couldn't list backends: {e}")
+
+    real_backends = [b for b in backends if not b.simulator]
+    return ConnectResponse(
+        connected=True,
+        channel=req.ibm_channel or "ibm_cloud",
+        n_backends=len(real_backends),
+        backend_name=real_backends[0].name if real_backends else "(no real backends visible on this account)",
+    )
+
+
 @router.post("/kernel-svm", response_model=QuantumResponse)
 def run_quantum_kernel_svm(req: QuantumRequest, username: str = Depends(get_current_user)):
     if req.n_train > MAX_N_TRAIN or req.n_test > MAX_N_TEST:
@@ -127,7 +171,7 @@ def run_quantum_kernel_svm(req: QuantumRequest, username: str = Depends(get_curr
             )
     is_real_hardware = service is not None
     if service is None:
-        backend_name = "aer_simulator (local fallback)"
+        backend_name = "aer_simulator"
     else:
         try:
             backend_name = ibm_quantum.pick_backend(service, min_qubits=x_train.shape[1]).name
@@ -135,8 +179,15 @@ def run_quantum_kernel_svm(req: QuantumRequest, username: str = Depends(get_curr
             raise HTTPException(400, f"IBM Quantum connected, but couldn't pick a backend: {e}")
     model = QuantumKernelSVM(backend=QuantumBackend.IBM, service=service)
 
-    model.fit(x_train, y_train)
-    y_pred = model.predict(x_test)
+    try:
+        model.fit(x_train, y_train)
+        y_pred = model.predict(x_test)
+    except Exception as e:
+        # Most likely on the real-hardware path: the account can't run the
+        # job right now (usage limit, backend down, etc.) - job.result() is
+        # timeout-bounded (see ibm_quantum.JOB_RESULT_TIMEOUT_S) so this
+        # surfaces the real reason within a bounded time instead of hanging.
+        raise HTTPException(400, f"quantum circuit execution failed: {e}")
     duration_s = round(time.time() - start, 3)
 
     metrics = evaluate("flood-segmentation", y_pred, y_test)
