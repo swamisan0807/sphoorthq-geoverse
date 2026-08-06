@@ -17,7 +17,7 @@ architecture/dataflow diagram.
 - [Quickstart](#quickstart) - run the notebooks
 - [Web UI](#web-ui) - what the platform layer does, run it locally
 - [Deploy](#deploy) - run it as a real, browser-reachable service (incl. Render)
-- [CI](#ci)
+- [Checks](#checks) - lint/test manually (no CI configured)
 
 ## Quickstart
 
@@ -62,6 +62,18 @@ finishes) - status goes queued -> running -> success/failed with a captured log 
 runs also log into this same job history (`kind: "quantum"`), so real hardware vs. simulation usage is
 visible in one place.
 
+**Quantum** (`src/api/routers/quantum.py`, `src/qml/`) - runs a real quantum-kernel SVM (Havlicek et al.
+2019) fresh on a small balanced pixel sample. The UI picks between **Qiskit Simulation** (local
+`AerSimulator`, no network call) and **Real IBM Hardware** - the latter lets you type in an IBM Quantum
+API token/instance/channel for just that one run (never written to disk, never logged) instead of
+requiring server-side env vars. Picking real hardware first calls a fast `/api/quantum/connect`
+pre-flight check (auth + list backends only, no per-backend queue-status query - typically a few seconds)
+before submitting any circuits, so the UI shows "connected" almost immediately rather than waiting on the
+whole job. Every IBM Cloud call (auth, backend listing, least-busy lookup, job result) is timeout-bounded
+(`src/qml/ibm_quantum.py`: `CONNECT_TIMEOUT_S`, `LEAST_BUSY_TIMEOUT_S`, `JOB_RESULT_TIMEOUT_S`), so a
+slow or rate-limited real account fails with a clear error instead of hanging the request. AWS Braket
+support was removed - IBM Quantum only.
+
 **Model registry** (`src/registry/`) - every successful `04_classical_ml` / `09_patch_unet` job
 auto-registers a new immutable version (real file snapshot + real metrics). A "current" pointer says
 which version inference actually loads; "restore" to a prior version takes effect on the next inference
@@ -70,8 +82,12 @@ call, no retraining needed.
 **Auto-retrain on new data** (`src/pipeline/auto_retrain.py`) - diffs the on-disk chip set against a
 baseline manifest; if new chips appear, triggers real retraining jobs for both classical models.
 
-**Compare** (`src/api/routers/compare.py`) - server-side Python/matplotlib bar chart comparing the
-current registry-pointed RF/U-Net versions against the latest quantum kernel SVM run.
+**Compare** (`src/api/routers/compare.py`) - the current registry-pointed RF/U-Net versions against the
+most recent successful quantum kernel SVM run *of each kind* - a simulator run and a real-hardware run
+are tracked as separate series and never averaged together. Client-side interactive chart (hover for
+exact values, keyboard-reachable) plus a server-rendered PNG download; both use the same validated
+CVD-safe 4-color palette. The page polls every 5s (with a live/paused toggle) so a job finishing anywhere
+else in the app shows up here without a manual reload.
 
 **Knowledge graph** (`src/graph/`) - built only from relationships the platform actually recorded:
 dataset -> flood events (real catalog), notebook -> registered model version (real registry manifests),
@@ -158,9 +174,17 @@ All optional - sensible dev defaults otherwise:
 | `WEB_BASE_URL` | Base URL baked into password-reset email links | none needed - derived from the actual incoming request, so it's automatically correct for wherever you deploy this. Only set it if the UI is ever hosted on a different origin than the API |
 | `SMTP_HOST` / `SMTP_USER` / `SMTP_PASSWORD` | Send real password-reset emails (see `config/platform.yaml`) | unset - reset links are written to `datasets/metadata/outbox/` and returned directly in the API response instead |
 | `CORS_ORIGINS` | Extra allowed origins (comma-separated), only needed if the UI is ever hosted separately from the API | dev-server ports only |
+| `IBM_QUANTUM_TOKEN` / `IBM_QUANTUM_INSTANCE` / `IBM_QUANTUM_CHANNEL` | Route the Quantum tab's "Real IBM Hardware" mode through your account by default, without typing a token into the UI each run (see [config/platform.yaml](config/platform.yaml)) | unset - the Quantum tab's "Real IBM Hardware" mode still works by entering credentials per-request in the UI; without either, it falls back to "Qiskit Simulation" behavior only if you pick that mode explicitly |
 
-## CI
+## Checks
 
-No containers: the API runs directly with `uvicorn` and the web UI with `npm run dev` / `npm run build`
-(see [Web UI](#web-ui) above). `.github/workflows/ci.yml` lints (`ruff`) and runs the smoke test suite
-(`tests/`) on every push/PR - that's the full scope, no deploy step.
+No CI workflow is configured (removed - not this repo's current setup). Run these manually before pushing:
+
+```powershell
+.\.venv\Scripts\pytest tests/          # smoke tests - API wiring, metrics math, auth, registry, U-Net shape
+.\.venv\Scripts\ruff check .           # lint (E/F/I - real bugs, not style opinions, see pyproject.toml)
+
+cd apps\web
+npm run lint                           # oxlint
+npm run build                          # tsc -b && vite build
+```

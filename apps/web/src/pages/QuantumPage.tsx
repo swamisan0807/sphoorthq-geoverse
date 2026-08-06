@@ -198,8 +198,7 @@ export default function QuantumPage() {
       {mode === "real" && (
         <p className="hint">
           Connects with this account for this run only - the token is sent over the request, used once to
-          call <code>QiskitRuntimeService</code>, and never written to disk (same channel/token/instance
-          triple as <code>test_ibm_connection.py</code>). Leave blank to fall back to
+          call <code>QiskitRuntimeService</code>, and never written to disk. Leave blank to fall back to
           IBM_QUANTUM_TOKEN/IBM_QUANTUM_INSTANCE configured on the server, if any.
         </p>
       )}

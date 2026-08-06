@@ -128,7 +128,8 @@ that runs notebooks as real subprocesses (`src/jobs/`), a versioned model regist
 relationships the platform actually recorded (`src/graph/`). No containers: for dev, `src/api/` runs
 directly via `uvicorn` and `apps/web/` via `npm run dev` as two processes; for a real deployment,
 `npm run build` produces `apps/web/dist/`, and `src/api/main.py` serves that itself, so it's one process
-on one port (see README.md "Deploy"). `.github/workflows/ci.yml` lints and runs the smoke test suite.
+on one port (see README.md "Deploy"). No CI workflow is configured - lint (`ruff`/`oxlint`) and the smoke
+test suite (`tests/`) are run manually (see README.md "Checks").
 
 ## Running
 

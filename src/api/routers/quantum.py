@@ -36,8 +36,7 @@ class QuantumRequest(BaseModel):
     # Only used when force_simulation is False - lets a caller connect with
     # their own IBM Quantum account for this one run instead of requiring
     # IBM_QUANTUM_TOKEN/IBM_QUANTUM_INSTANCE to already be set on the server
-    # (same channel/token/instance triple as QiskitRuntimeService itself -
-    # see test_ibm_connection.py for the equivalent standalone CLI check).
+    # (same channel/token/instance triple QiskitRuntimeService itself takes).
     # Never persisted: not written to disk, not included in job history.
     ibm_token: str | None = None
     ibm_instance: str | None = None
@@ -159,8 +158,7 @@ def run_quantum_kernel_svm(req: QuantumRequest, username: str = Depends(get_curr
             )
         except Exception as e:
             # A bad/expired token, wrong instance CRN, etc. raise here - surface
-            # the real reason instead of a bare 500, same spirit as
-            # test_ibm_connection.py's "Connection failed: {e}" message.
+            # the real reason instead of a bare 500.
             raise HTTPException(400, f"IBM Quantum connection failed: {e}")
         if service is None:
             raise HTTPException(
