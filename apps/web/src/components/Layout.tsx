@@ -20,7 +20,7 @@ export default function Layout({ backendUp, username, onLogout }: Props) {
             <p className="error">
               Cannot reach the API{API_BASE ? ` at ${API_BASE}` : ""}. Start it with:
               <br />
-              <code>.venv\Scripts\uvicorn src.api.main:app --reload --port 8000</code>
+              <code>.venv\Scripts\uvicorn apps.api.main:app --reload --port 8000</code>
             </p>
           )}
           <Outlet />

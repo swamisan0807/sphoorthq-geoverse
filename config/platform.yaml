@@ -1,12 +1,18 @@
-# Credential/config reference for every connector in src/ingestion and
-# src/qml. Nothing here is a secret - these are the ENV VAR NAMES the code
+# Credential/config reference for every connector in utils/ingestion and
+# utils/qml. Nothing here is a secret - these are the ENV VAR NAMES the code
 # reads, not values. Set them in your shell or a .env you load yourself;
 # nothing in this repo reads a .env automatically.
 
 ingestion:
   s3:
     env: [AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN]
-    note: "falls back to ~/.aws/credentials or an IAM role if unset. anonymous=True works for public buckets with no credentials at all."
+    note: >
+      falls back to ~/.aws/credentials (this dev setup: profile "sphoorthq-geoverse", also set as
+      [default]) or an IAM role if unset. anonymous=True works for public buckets with no credentials at
+      all. notebooks/01_ingest.ipynb's primary sen1floods11 source is this project's own bucket,
+      s3://sphoorthq-geoverse/datasets/raw/sen1floods11/ - a one-to-one mirror of the local
+      datasets/raw/sen1floods11/ folder - falling back to the original public GCS bucket
+      (storage.googleapis.com/sen1floods11, no credentials needed) if the S3 mirror isn't reachable.
   adls:
     env: [AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID]
     note: "DefaultAzureCredential chain - also supports managed identity, az CLI login."
@@ -20,19 +26,61 @@ ingestion:
 qml:
   ibm_quantum:
     env: [IBM_QUANTUM_TOKEN]
-    note: "get a free token at https://quantum.ibm.com. Without it, src/qml/ibm_quantum.py falls back to a local AerSimulator - explicitly logged as is_real_hardware: False."
+    note: "get a free token at https://quantum.ibm.com. Without it, utils/qml/ibm_quantum.py falls back to a local AerSimulator - explicitly logged as is_real_hardware: False."
     channel: ibm_quantum
+
+state:
+  s3:
+    env: [STATE_S3_BUCKET]
+    optional_env: [STATE_S3_PREFIX, STATE_S3_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN]
+    note: >
+      utils/core/cloud_state.py - when STATE_S3_BUCKET is set, the model registry
+      (utils/registry/model_registry.py) and job/run history (utils/jobs/engine.py,
+      utils/observability/run_logger.py) read and write S3 as the source of truth
+      instead of local disk under datasets/processed/ and datasets/reports/ - the
+      fix for a stateless redeploy (e.g. Render with no persistent disk) otherwise
+      wiping that state on every restart. This dev setup has STATE_S3_BUCKET=
+      sphoorthq-geoverse and STATE_S3_PREFIX=datasets set as persistent env vars,
+      so S3 keys land at s3://sphoorthq-geoverse/datasets/processed/models/registry/...
+      and .../datasets/reports/{jobs,runs}/... - the same paths the one-time full
+      dataset mirror (see README "Data") already populated. Credentials: standard
+      boto3 chain (env vars above, ~/.aws/credentials, or an IAM role). Without
+      STATE_S3_BUCKET set, falls back to local disk - explicitly logged, never
+      silent, same pattern as
+      every other cloud/local fallback in this codebase.
 
 auth:
   forgot_password_email:
     env: [SMTP_HOST, SMTP_USER, SMTP_PASSWORD]
     optional_env: [SMTP_PORT, SMTP_FROM, SMTP_USE_TLS, WEB_BASE_URL]
     note: >
-      src/auth/mailer.py sends the reset link over real SMTP (e.g. smtp.gmail.com:587
+      utils/auth/mailer.py sends the reset link over real SMTP (e.g. smtp.gmail.com:587
       with a Gmail App Password as SMTP_PASSWORD - a regular account password will be
       rejected). Without these set, it falls back to writing the message to
       datasets/metadata/outbox/ and the API response includes the reset link directly,
       so the flow still works end-to-end for local/dev use.
+  auth0:
+    env: [AUTH0_DOMAIN, AUTH0_CLIENT_ID, AUTH0_CLIENT_SECRET]
+    optional_env: [WEB_BASE_URL]
+    note: >
+      utils/auth/auth0.py + apps/api/routers/auth.py's /api/auth/auth0/login and
+      /api/auth/auth0/callback routes - server-side OAuth2 Authorization Code flow
+      (a "Regular Web Application" in Auth0's terms, since a client secret is
+      involved). Ends at the exact same session JWT (utils/auth/tokens.issue_token)
+      password login produces, so every other route's Depends(get_current_user) needs
+      no changes - Auth0 is an additional way in, not a replacement for the
+      self-service username/password flow. Without AUTH0_DOMAIN/AUTH0_CLIENT_ID/
+      AUTH0_CLIENT_SECRET set, /api/auth/auth0/login returns 501, and the "Log in
+      with Auth0" button just doesn't work - explicit, not a silent fallback, since
+      there's no local equivalent to fall back to. This dev setup has all three set
+      as persistent env vars (app: "sphoorthq-geoverse", dev-c5qihp1dhlilcem2.us.auth0.com).
+
+      One manual step this can't do for you: the Auth0 application's dashboard
+      needs this exact URL added to "Allowed Callback URLs" (Application URIs) -
+      {WEB_BASE_URL or the API's own origin}/api/auth/auth0/callback - e.g.
+      http://localhost:8000/api/auth/auth0/callback for local dev without
+      WEB_BASE_URL set. Auth0 rejects the callback otherwise ("Callback URL
+      mismatch"), a dashboard-side setting outside anything this backend controls.
 
 objectives:
   flood-segmentation:

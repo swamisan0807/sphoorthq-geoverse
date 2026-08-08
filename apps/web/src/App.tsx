@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { api, clearSession, getToken, getUsername, setUnauthorizedHandler } from "./api/client";
 import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import Auth0CallbackPage from "./pages/Auth0CallbackPage";
 import DashboardPage from "./pages/DashboardPage";
 import CatalogPage from "./pages/CatalogPage";
 import InferencePage from "./pages/InferencePage";
@@ -56,6 +57,17 @@ function App() {
         path="/reset-password"
         element={
           <ResetPasswordPage
+            onAuthed={() => {
+              setAuthed(true);
+              setUsername(getUsername());
+            }}
+          />
+        }
+      />
+      <Route
+        path="/auth0/callback"
+        element={
+          <Auth0CallbackPage
             onAuthed={() => {
               setAuthed(true);
               setUsername(getUsername());

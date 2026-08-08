@@ -19,7 +19,7 @@ rasterio
 torch
 
 # ============================
-# Cloud ingestion connectors (src/ingestion)
+# Cloud ingestion connectors (utils/ingestion)
 # ============================
 boto3                       # S3
 azure-identity               # ADLS auth
@@ -37,17 +37,18 @@ matplotlib
 tqdm
 
 # ============================
-# Web API (src/api) - serves the notebook pipeline to apps/web
+# Web API (apps/api) - serves the notebook pipeline to apps/web
 # ============================
 fastapi
 uvicorn[standard]
 pillow
-bcrypt           # user password hashing (src/auth/store.py)
+bcrypt           # user password hashing (utils/auth/store.py)
 pyjwt            # session tokens
+requests         # Auth0 code exchange + userinfo (utils/auth/auth0.py)
 networkx         # knowledge graph (events -> chips -> model versions -> metrics)
 
 # ============================
-# Quantum ML (required for notebooks 05/06 + src/qml, src/api/routers/quantum.py)
+# Quantum ML (required for notebooks 05/06 + utils/qml, apps/api/routers/quantum.py)
 # ============================
 qiskit
 qiskit-aer

@@ -14,10 +14,11 @@ export default function JobsPage() {
   const [error, setError] = useState<string | null>(null);
   const [newData, setNewData] = useState<NewDataStatus | null>(null);
   const [checking, setChecking] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
   const pollRef = useRef<number | null>(null);
 
-  function refreshJobs() {
-    api.jobs(30).then(setJobs).catch((e) => setError(String(e)));
+  function refreshJobs(mine = mineOnly) {
+    api.jobs(30, mine).then(setJobs).catch((e) => setError(String(e)));
   }
 
   useEffect(() => {
@@ -25,13 +26,17 @@ export default function JobsPage() {
       setNotebooks(nbs);
       if (nbs.length > 0) setSelected(nbs[0]);
     });
-    refreshJobs();
   }, []);
+
+  useEffect(() => {
+    refreshJobs(mineOnly);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mineOnly]);
 
   useEffect(() => {
     const hasRunning = jobs.some((j) => j.status === "running" || j.status === "queued");
     if (hasRunning && pollRef.current === null) {
-      pollRef.current = window.setInterval(refreshJobs, 4000);
+      pollRef.current = window.setInterval(() => refreshJobs(mineOnly), 4000);
     } else if (!hasRunning && pollRef.current !== null) {
       window.clearInterval(pollRef.current);
       pollRef.current = null;
@@ -39,6 +44,7 @@ export default function JobsPage() {
     return () => {
       if (pollRef.current !== null) window.clearInterval(pollRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobs]);
 
   async function runJob() {
@@ -132,6 +138,10 @@ export default function JobsPage() {
 
       <section>
         <h3>Job history</h3>
+        <label className="hint" style={{ display: "inline-flex", alignItems: "center", gap: "0.4em" }}>
+          <input type="checkbox" checked={mineOnly} onChange={(e) => setMineOnly(e.target.checked)} />
+          my jobs only
+        </label>
         <table>
           <thead>
             <tr>

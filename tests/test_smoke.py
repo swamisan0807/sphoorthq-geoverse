@@ -22,7 +22,7 @@ def _collect_paths(routes) -> set[str]:
 
 
 def test_api_app_imports_and_wires_routers():
-    from src.api.main import app
+    from apps.api.main import app
 
     paths = _collect_paths(app.routes)
     assert "/api/health" in paths
@@ -36,7 +36,7 @@ def test_api_app_imports_and_wires_routers():
 
 
 def test_evaluate_metrics_are_correct_on_known_input():
-    from src.ai.objectives.registry import evaluate
+    from utils.ai.objectives.registry import evaluate
 
     # 2 true positives, 1 false positive, 1 false negative, 4 true negatives
     pred = np.array([1, 1, 1, 0, 0, 0, 0, 0])
@@ -50,7 +50,7 @@ def test_evaluate_metrics_are_correct_on_known_input():
 
 
 def test_password_hash_roundtrip():
-    from src.auth.store import _hash_password, _verify_password
+    from utils.auth.store import _hash_password, _verify_password
 
     hashed = _hash_password("correct horse battery staple")
     assert _verify_password("correct horse battery staple", hashed)
@@ -58,7 +58,7 @@ def test_password_hash_roundtrip():
 
 
 def test_jwt_token_roundtrip():
-    from src.auth.tokens import decode_token, issue_token
+    from utils.auth.tokens import decode_token, issue_token
 
     token = issue_token("testuser")
     assert decode_token(token) == "testuser"
@@ -66,7 +66,7 @@ def test_jwt_token_roundtrip():
 
 
 def test_jobs_engine_lists_known_notebooks():
-    from src.jobs.engine import list_notebooks
+    from utils.jobs.engine import list_notebooks
 
     notebooks = list_notebooks()
     assert "01_ingest" in notebooks
@@ -74,14 +74,14 @@ def test_jobs_engine_lists_known_notebooks():
 
 
 def test_registry_handles_unknown_model_gracefully():
-    from src.registry import model_registry
+    from utils.registry import model_registry
 
     assert model_registry.list_versions("nonexistent_model_xyz") == []
     assert model_registry.get_current_version("nonexistent_model_xyz") is None
 
 
 def test_knowledge_graph_builds_without_error():
-    from src.graph.knowledge_graph import build_graph, to_mermaid
+    from utils.graph.knowledge_graph import build_graph, to_mermaid
 
     g = build_graph()
     assert g.number_of_nodes() > 0
@@ -92,7 +92,7 @@ def test_knowledge_graph_builds_without_error():
 def test_unet_forward_pass_shape():
     import torch
 
-    from src.ai.classic.unet import UNet
+    from utils.ai.classic.unet import UNet
 
     model = UNet(in_channels=2, num_classes=1, base_channels=4)
     x = torch.zeros(1, 2, 64, 64)

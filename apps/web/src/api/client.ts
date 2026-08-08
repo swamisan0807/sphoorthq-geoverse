@@ -1,10 +1,17 @@
 // Explicit VITE_API_BASE always wins. Otherwise: in `npm run dev` (two
 // separate servers - Vite on :5173, uvicorn on :8000) default to the local
 // API. In a production build (`npm run build`), default to "" - a
-// same-origin relative path - because src/api/main.py serves this built
+// same-origin relative path - because apps/api/main.py serves this built
 // UI itself, so the deployed app is one process on one port and the
 // browser never needs a different host at all.
-const API_BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? "http://127.0.0.1:8000" : "");
+//
+// "localhost", not "127.0.0.1": apps/api/routers/auth.py's Auth0 redirect_uri
+// is derived from the actual incoming request's own host (request.base_url),
+// so whatever hostname this constant uses is exactly the hostname Auth0 gets
+// told to redirect back to - it has to match a URL registered in Auth0's
+// Allowed Callback URLs byte-for-byte, and "127.0.0.1" != "localhost" to
+// that exact-match check even though both reach the same machine.
+const API_BASE = import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? "http://localhost:8000" : "");
 const TOKEN_STORAGE_KEY = "geoverse_token";
 const USERNAME_STORAGE_KEY = "geoverse_username";
 
@@ -228,6 +235,9 @@ export const api = {
     postJSON<{ detail: string; dev_reset_link: string | null }>("/api/auth/forgot-password", { username }),
   resetPassword: (token: string, new_password: string) =>
     postJSON<{ token: string; username: string }>("/api/auth/reset-password", { token, new_password }),
+  // Full navigation, not a fetch - this starts a real redirect to Auth0's Universal Login page
+  // (apps/api/routers/auth.py's auth0_login), not an API call that returns JSON.
+  auth0LoginUrl: () => `${API_BASE}/api/auth/auth0/login`,
 
   events: () => getJSON<EventSummary[]>("/api/catalog/events"),
   chips: (split: string, event?: string) =>
@@ -247,7 +257,7 @@ export const api = {
   quantumKernelSvm: (req: QuantumRequest) => postJSON<QuantumResponse>("/api/quantum/kernel-svm", req),
 
   jobNotebooks: () => getJSON<string[]>("/api/jobs/notebooks"),
-  jobs: (limit = 30) => getJSON<JobRecord[]>(`/api/jobs?limit=${limit}`),
+  jobs: (limit = 30, mine = false) => getJSON<JobRecord[]>(`/api/jobs?limit=${limit}&mine=${mine}`),
   jobDetail: (jobId: string) => getJSON<JobRecord>(`/api/jobs/${jobId}`),
   runNotebookJob: (notebook: string) => postJSON<JobRecord>("/api/jobs", { notebook }),
 

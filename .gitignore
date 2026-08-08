@@ -10,27 +10,15 @@ venv/
 apps/web/node_modules/
 apps/web/dist/
 
-# Datasets - large binary raster/vector data, not meant for git.
-# Fetch via the ingest pipeline instead of committing; see docs/architecture.md.
-datasets/raw/
-datasets/processed/
-datasets/exports/
-datasets/thumbnails/
-*.tif
-*.tiff
-*.jp2
-*.osm.pbf
-!datasets/raw/.gitkeep
-!datasets/processed/.gitkeep
-!datasets/exports/.gitkeep
-!datasets/thumbnails/.gitkeep
-
-# datasets/metadata and datasets/reports are small JSON - keep tracked,
-# except real secrets/user data:
-datasets/metadata/users.db
-datasets/metadata/.jwt_secret
-datasets/metadata/outbox/
-datasets/reports/knowledge_graph.json
+# Datasets - not meant for git at all, regardless of size. Source of truth
+# is s3://sphoorthq-geoverse/datasets/ (see notebooks/01_ingest.ipynb and
+# utils/core/cloud_state.py) - local datasets/ is a working cache the app
+# populates on demand (raw chips lazily via utils/ai/classic/
+# sen1floods11_dataset.py, registry/job/run state via STATE_S3_BUCKET), never
+# something to commit or push. This used to carve out an exception for
+# datasets/metadata/ and datasets/reports/ ("small JSON, keep tracked") -
+# that's gone now that S3 is the actual source of truth for that state too.
+datasets/
 
 # Editors / OS
 .vscode/

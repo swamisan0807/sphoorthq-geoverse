@@ -128,6 +128,15 @@ export default function LoginPage({ onAuthed }: { onAuthed: () => void }) {
             )}
           </form>
         )}
+
+        {mode !== "forgot" && (
+          <>
+            <div className="login-divider">or</div>
+            <a className="submit auth0-button" href={api.auth0LoginUrl()}>
+              Log in with Auth0
+            </a>
+          </>
+        )}
       </div>
     </div>
   );

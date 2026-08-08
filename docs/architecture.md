@@ -7,20 +7,20 @@ computational efficiency in complex imaging environments" via a classical ML + q
 ## Design
 
 1. **Ingest** from any cloud (S3 / Azure Data Lake Storage Gen2 / Google Cloud Storage / a public HTTPS
-   bucket / local disk) through one connector interface - `src/ingestion/`.
+   bucket / local disk) through one connector interface - `utils/ingestion/`.
 2. **Process, engineer features, train, and evaluate in Jupyter notebooks** - `notebooks/01`-`09` - not a
    hidden service. Every stage is inspectable and re-runnable.
 3. **ML + QML hybrid**: a classical Random Forest (pixel-wise, notebook `04`) and U-Net (patch-wise,
-   notebook `09`) baseline (`src/ai/classic/`) and a quantum kernel SVM that connects to real
-   **IBM Quantum** (via `qiskit-ibm-runtime`'s `QiskitRuntimeService`) - `src/qml/`. Results from both
+   notebook `09`) baseline (`utils/ai/classic/`) and a quantum kernel SVM that connects to real
+   **IBM Quantum** (via `qiskit-ibm-runtime`'s `QiskitRuntimeService`) - `utils/qml/`. Results from both
    feed a hybrid ensemble (notebook `06`). Notebooks `05`/`06` default to `FORCE_SIMULATION = True`
    (local `AerSimulator`, no cloud calls) - flip that flag to route the same code through real hardware.
-4. **Observability**: every notebook stage logs through `RunLogger` (`src/observability/`) to
+4. **Observability**: every notebook stage logs through `RunLogger` (`utils/observability/`) to
    `datasets/reports/runs/*.json` - timing, status, metrics, per stage, per run. Notebook `07` renders
    that history plus the architecture diagram below.
 5. **Robustness**: notebook `08` sweeps 5 perturbation types (heavy speckle, incidence-angle shift,
    texture-channel dropout, two Gaussian noise levels) across 5 distinct flood events using
-   `src/ai/robustness/evaluate.py`'s `run_robustness_suite`.
+   `utils/ai/robustness/evaluate.py`'s `run_robustness_suite`.
 
 ## Architecture / dataflow diagram
 
@@ -33,13 +33,13 @@ flowchart TB
         HTTP["Public HTTPS bucket"]
     end
 
-    subgraph INGEST["src/ingestion"]
+    subgraph INGEST["utils/ingestion"]
         CONN["IngestionConnector\n(s3 / adls / gcs / http / local)"]
     end
 
     RAW[("datasets/raw/\nlocal, analysis-ready")]
 
-    subgraph PROCESS["notebooks/02_process\n+ src/processing"]
+    subgraph PROCESS["notebooks/02_process\n+ utils/processing"]
         CAL["Lee speckle filter\n+ linear-to-dB"]
     end
 
@@ -53,16 +53,16 @@ flowchart TB
         UNET["U-Net\n(notebook 09, patch-wise)"]
     end
 
-    subgraph QUANTUM["Quantum ML - src/qml\n(FORCE_SIMULATION default)"]
+    subgraph QUANTUM["Quantum ML - utils/qml\n(FORCE_SIMULATION default)"]
         IBM["IBM Quantum Runtime\n(QiskitRuntimeService / AerSimulator)"]
         QKERNEL["Quantum kernel SVM\n(batched gram-matrix jobs)"]
     end
 
     HYBRID["Hybrid ensemble\n(notebook 06, classical + QML vote)"]
-    EVAL["Evaluation\n(src/ai/objectives)"]
+    EVAL["Evaluation\n(utils/ai/objectives)"]
     ROBUST["Robustness sweep\n(notebook 08: 5 perturbations x 5 events)"]
 
-    subgraph OBS["Observability - src/observability"]
+    subgraph OBS["Observability - utils/observability"]
         LOG["RunLogger\n(per-stage timing + metrics)"]
         RUNS[("datasets/reports/runs/*.json")]
     end
@@ -93,10 +93,10 @@ flowchart TB
     LOG --> RUNS
 ```
 
-(Source of truth for this diagram is `src/observability/diagram.py: ARCHITECTURE_DIAGRAM` - notebook 07
+(Source of truth for this diagram is `utils/observability/diagram.py: ARCHITECTURE_DIAGRAM` - notebook 07
 prints the same string, so it can't drift out of sync silently.)
 
-## src/ layout
+## utils/ layout
 
 - **ingestion/** - `base.py` (interface), `s3_connector.py`, `adls_connector.py`, `gcs_connector.py`,
   `http_connector.py` (no-SDK public-bucket path - how `sen1floods11` was actually pulled),
@@ -118,16 +118,16 @@ prints the same string, so it can't drift out of sync silently.)
 - **observability/** - `run_logger.py` (`RunLogger`, structured per-stage JSON logs),
   `diagram.py` (this architecture diagram, as code).
 
-## Platform layer (src/api/, src/auth/, src/jobs/, src/registry/, src/graph/, src/pipeline/)
+## Platform layer (apps/api/, utils/auth/, utils/jobs/, utils/registry/, utils/graph/, utils/pipeline/)
 
-Everything above is the ML pipeline; this is the real service wrapped around it, exposed by `src/api/`
+Everything above is the ML pipeline; this is the real service wrapped around it, exposed by `apps/api/`
 (FastAPI) and consumed by `apps/web/` (React). See the "Web UI" section of the top-level
-[README.md](../README.md) for the full breakdown - in short: self-service auth (`src/auth/`), a job engine
-that runs notebooks as real subprocesses (`src/jobs/`), a versioned model registry with restore
-(`src/registry/`), auto-retrain-on-new-data (`src/pipeline/`), and a knowledge graph built only from
-relationships the platform actually recorded (`src/graph/`). No containers: for dev, `src/api/` runs
+[README.md](../README.md) for the full breakdown - in short: self-service auth (`utils/auth/`), a job engine
+that runs notebooks as real subprocesses (`utils/jobs/`), a versioned model registry with restore
+(`utils/registry/`), auto-retrain-on-new-data (`utils/pipeline/`), and a knowledge graph built only from
+relationships the platform actually recorded (`utils/graph/`). No containers: for dev, `apps/api/` runs
 directly via `uvicorn` and `apps/web/` via `npm run dev` as two processes; for a real deployment,
-`npm run build` produces `apps/web/dist/`, and `src/api/main.py` serves that itself, so it's one process
+`npm run build` produces `apps/web/dist/`, and `apps/api/main.py` serves that itself, so it's one process
 on one port (see README.md "Deploy"). No CI workflow is configured - lint (`ruff`/`oxlint`) and the smoke
 test suite (`tests/`) are run manually (see README.md "Checks").
 
@@ -145,7 +145,7 @@ Run `01` through `09` in order. `sen1floods11` (446 hand-labeled SAR flood chips
 of the local-simulator default.
 
 - `08_robustness_sweep.ipynb` - systematic robustness evaluation (5 perturbations x 5 flood events).
-- `09_patch_unet.ipynb` - trains the patch-based U-Net (`src/ai/classic/unet.py`) with `MaskedComboLoss`.
+- `09_patch_unet.ipynb` - trains the patch-based U-Net (`utils/ai/classic/unet.py`) with `MaskedComboLoss`.
 
 ## Honesty about scope
 
@@ -164,4 +164,4 @@ of the local-simulator default.
   not always coincident with the label's own `-1` no-data convention (confirmed by direct inspection,
   e.g. `Pakistan_43105` has 733 NaN S1 pixels, none of which coincide with a `-1` label). All feature
   extraction, dataset loading, and robustness evaluation now mask on `(label != -1) & ~s1_nodata_mask`,
-  not on the label alone - see `s1_nodata_mask()` in `src/ai/classic/sen1floods11_dataset.py`.
+  not on the label alone - see `s1_nodata_mask()` in `utils/ai/classic/sen1floods11_dataset.py`.

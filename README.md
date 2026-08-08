@@ -41,28 +41,38 @@ that gets there).
 
 ## Web UI
 
-`src/api/` (FastAPI) serves the notebook pipeline as a real platform - self-service login, notebook jobs,
+`apps/api/` (FastAPI) serves the notebook pipeline as a real platform - self-service login, notebook jobs,
 a versioned model registry, classical-vs-quantum comparison, and a knowledge graph, on top of everything
 in [Quickstart](#quickstart) above. `apps/web/` (React + Vite) is the UI on top of it. Nothing here is
 mocked: inference loads the same `.pkl`/`.pt` files the notebooks save (via the registry's current-version
 pointer), the catalog reads the same `sen1floods11` splits, the Quantum tab submits real circuits through
-the same `src/qml/` code the notebooks use, and the Jobs tab runs real `jupyter nbconvert --execute`
+the same `utils/qml/` code the notebooks use, and the Jobs tab runs real `jupyter nbconvert --execute`
 subprocesses.
 
-**Auth** (`src/auth/`) - self-service signup/login, any username creates a new account, no invite/approval
+**Auth** (`utils/auth/`) - self-service signup/login, any username creates a new account, no invite/approval
 step. Real SQLite database (`datasets/metadata/users.db`), passwords hashed with `bcrypt` directly (not
-passlib - see the comment in `src/auth/store.py` for why), sessions are JWT bearer tokens. Every `/api/*`
+passlib - see the comment in `utils/auth/store.py` for why), sessions are JWT bearer tokens. Every `/api/*`
 route except `/api/auth/*` and `/api/health` requires a valid session. Forgot-password sends a real,
 single-use, 15-minute reset link (real SMTP if configured, honest local fallback otherwise - see
 [Environment variables](#environment-variables)).
 
-**Jobs** (`src/jobs/`) - trigger any notebook (`01`-`09`) to run as a real background subprocess from the
+**Auth0** (`utils/auth/auth0.py`) - a second, ready-to-deploy way to log in, alongside (not replacing) the
+self-service flow above. "Log in with Auth0" on the login page starts a real server-side OAuth2
+Authorization Code exchange (`/api/auth/auth0/login` -> Auth0's Universal Login -> `/api/auth/auth0/callback`)
+and ends at this app's own session JWT, same as a password login - every other route is unaffected. Auto-
+provisions a local account on first Auth0 login (`auth_provider="auth0"` in `users.db`); if that exact
+username/email already has a password-based account, the callback refuses to silently take it over (409) -
+closes the obvious pre-registration hijack. Requires `AUTH0_DOMAIN`/`AUTH0_CLIENT_ID`/`AUTH0_CLIENT_SECRET`
+(see [config/platform.yaml](config/platform.yaml)) and, on Auth0's side, that exact callback URL added to
+the application's Allowed Callback URLs - the one manual step outside this repo's control.
+
+**Jobs** (`utils/jobs/`) - trigger any notebook (`01`-`09`) to run as a real background subprocess from the
 UI, like a Databricks job run. No cell-by-cell live stream (nbconvert only rewrites the notebook once it
 finishes) - status goes queued -> running -> success/failed with a captured log tail. Quantum kernel SVM
 runs also log into this same job history (`kind: "quantum"`), so real hardware vs. simulation usage is
 visible in one place.
 
-**Quantum** (`src/api/routers/quantum.py`, `src/qml/`) - runs a real quantum-kernel SVM (Havlicek et al.
+**Quantum** (`apps/api/routers/quantum.py`, `utils/qml/`) - runs a real quantum-kernel SVM (Havlicek et al.
 2019) fresh on a small balanced pixel sample. The UI picks between **Qiskit Simulation** (local
 `AerSimulator`, no network call) and **Real IBM Hardware** - the latter lets you type in an IBM Quantum
 API token/instance/channel for just that one run (never written to disk, never logged) instead of
@@ -70,26 +80,27 @@ requiring server-side env vars. Picking real hardware first calls a fast `/api/q
 pre-flight check (auth + list backends only, no per-backend queue-status query - typically a few seconds)
 before submitting any circuits, so the UI shows "connected" almost immediately rather than waiting on the
 whole job. Every IBM Cloud call (auth, backend listing, least-busy lookup, job result) is timeout-bounded
-(`src/qml/ibm_quantum.py`: `CONNECT_TIMEOUT_S`, `LEAST_BUSY_TIMEOUT_S`, `JOB_RESULT_TIMEOUT_S`), so a
+(`utils/qml/ibm_quantum.py`: `CONNECT_TIMEOUT_S`, `LEAST_BUSY_TIMEOUT_S`, `JOB_RESULT_TIMEOUT_S`), so a
 slow or rate-limited real account fails with a clear error instead of hanging the request. AWS Braket
 support was removed - IBM Quantum only.
 
-**Model registry** (`src/registry/`) - every successful `04_classical_ml` / `09_patch_unet` job
+**Model registry** (`utils/registry/`) - every successful `04_classical_ml` / `09_patch_unet` job
 auto-registers a new immutable version (real file snapshot + real metrics). A "current" pointer says
 which version inference actually loads; "restore" to a prior version takes effect on the next inference
-call, no retraining needed.
+call, no retraining needed. Backed by S3 when `STATE_S3_BUCKET` is set (survives a stateless redeploy),
+local disk otherwise - see [Persistence](#persistence).
 
-**Auto-retrain on new data** (`src/pipeline/auto_retrain.py`) - diffs the on-disk chip set against a
+**Auto-retrain on new data** (`utils/pipeline/auto_retrain.py`) - diffs the on-disk chip set against a
 baseline manifest; if new chips appear, triggers real retraining jobs for both classical models.
 
-**Compare** (`src/api/routers/compare.py`) - the current registry-pointed RF/U-Net versions against the
+**Compare** (`apps/api/routers/compare.py`) - the current registry-pointed RF/U-Net versions against the
 most recent successful quantum kernel SVM run *of each kind* - a simulator run and a real-hardware run
 are tracked as separate series and never averaged together. Client-side interactive chart (hover for
 exact values, keyboard-reachable) plus a server-rendered PNG download; both use the same validated
 CVD-safe 4-color palette. The page polls every 5s (with a live/paused toggle) so a job finishing anywhere
 else in the app shows up here without a manual reload.
 
-**Knowledge graph** (`src/graph/`) - built only from relationships the platform actually recorded:
+**Knowledge graph** (`utils/graph/`) - built only from relationships the platform actually recorded:
 dataset -> flood events (real catalog), notebook -> registered model version (real registry manifests),
 event -> quantum run (real, since every quantum job logs its exact chip). No inferred/fabricated edges.
 
@@ -98,7 +109,7 @@ event -> quantum run (real, since every quantum job logs its exact chip). No inf
 Two processes, hot reload - separate terminals:
 
 ```powershell
-.\.venv\Scripts\uvicorn src.api.main:app --reload --port 8000
+.\.venv\Scripts\uvicorn apps.api.main:app --reload --port 8000
 
 cd apps\web
 npm install   # first time only
@@ -111,7 +122,7 @@ Random Forest / U-Net options have a model to load.
 
 ## Deploy
 
-No containers, no separate frontend host, no reverse proxy - `src/api/main.py` serves the built React UI
+No containers, no separate frontend host, no reverse proxy - `apps/api/main.py` serves the built React UI
 itself once it exists, so the whole platform is **one process on one port**, reachable from any browser
 that can reach that port. No hardcoded `localhost` anywhere in the code path that matters: the API base
 URL, CORS origins, and password-reset links are all either same-origin by construction or derived from
@@ -124,11 +135,11 @@ npm run build                 # writes apps/web/dist/ - main.py auto-detects and
 
 cd ..\..
 .\.venv\Scripts\pip install -r requirements.txt
-.\.venv\Scripts\uvicorn src.api.main:app --host 0.0.0.0 --port 8000   # no --reload in production
+.\.venv\Scripts\uvicorn apps.api.main:app --host 0.0.0.0 --port 8000   # no --reload in production
 ```
 
 Open `http://<the machine's address>:8000` - that's the real app (not `/docs`), API and UI on the same
-origin. `src/api/main.py`'s catch-all route serves `apps/web/dist/index.html` for any path that isn't a
+origin. `apps/api/main.py`'s catch-all route serves `apps/web/dist/index.html` for any path that isn't a
 matched `/api/*` route or an actual built asset, so client-side routes (e.g. a hard refresh on
 `/dashboard`) resolve correctly.
 
@@ -146,35 +157,82 @@ that's the file to fix.
 
 ### Data
 
-`datasets/raw/` (1.7 GB - the real `sen1floods11` SAR imagery) and `datasets/processed/` (269 MB - trained
-model files) are both `.gitignore`d - **a fresh clone or a fresh Render deploy does not include them.** The
-service still boots and auth still works with neither present, but Catalog, Inference, Jobs, Quantum, and
-Registry all need real data to do anything:
+The full dataset (the real `sen1floods11` SAR imagery under `datasets/raw/`, ~1.7 GB, plus trained model
+files under `datasets/processed/`, ~269 MB) lives in this project's own S3 bucket,
+**`s3://sphoorthq-geoverse/datasets/`** - a straight mirror of the local `datasets/` tree, uploaded via
+`S3Connector.upload_prefix()`. Both dirs are still `.gitignore`d (S3 is the real source of truth now, not
+git) - **a fresh clone has neither, and doesn't need them locally until a notebook or the API actually
+reads them:**
 
-- `datasets/raw/sen1floods11/` - re-fetch via `notebooks/01_ingest.ipynb` (`src/ingestion/http_connector.py`
-  pulls it from a public HTTPS bucket, no credentials needed) or copy an existing local copy over.
+- `datasets/raw/sen1floods11/` - `notebooks/01_ingest.ipynb` pulls it from
+  `s3://sphoorthq-geoverse/datasets/raw/sen1floods11/` (see [AWS credentials](#aws-credentials) below),
+  falling back to the original public GCS bucket (no credentials needed) if the S3 mirror isn't reachable.
+  Either way it lands in the same local `datasets/raw/sen1floods11/` folder structure - local disk here is
+  a working cache for notebooks/libraries that need real files (rasterio, sklearn, torch), not the source
+  of truth.
 - `datasets/processed/models/` - regenerate by running `04_classical_ml` and `09_patch_unet` (from the
-  Jobs tab or Jupyter) once `datasets/raw/` is populated.
+  Jobs tab or Jupyter), or restore an existing version from the S3-backed registry (see
+  [Persistence](#persistence) below) - no retraining needed if a version is already registered.
+
+#### AWS credentials
+
+Every S3 path in this platform (dataset ingestion above, plus registry/job/run state below) uses the
+standard boto3 credential chain - env vars, `~/.aws/credentials`, or an IAM role, nothing hardcoded. Local
+dev is set up with a named profile:
+
+```ini
+# ~/.aws/credentials
+[sphoorthq-geoverse]
+aws_access_key_id = ...
+aws_secret_access_key = ...
+```
+
+```ini
+# ~/.aws/config
+[profile sphoorthq-geoverse]
+region = us-east-1
+```
+
+Set `AWS_PROFILE=sphoorthq-geoverse` (or make it your `[default]` profile, as this dev setup does) so
+notebooks and the API pick it up with no extra config. `region_name` is also passed explicitly wherever
+the code constructs an S3 client, so `AWS_DEFAULT_REGION`/profile region are a fallback, not a requirement.
 
 ### Persistence
 
 Render's free plan has no persistent disk - the filesystem resets on every deploy and every restart. That
 means `datasets/metadata/users.db` (accounts), `datasets/metadata/.jwt_secret` (sessions), and everything
-under `datasets/reports/` and `datasets/processed/` would all be wiped along with it. For anything beyond a
-demo, attach a Render persistent disk (paid plan) mounted at `datasets/` - `render.yaml` has that block
-ready, commented out.
+under `datasets/reports/` and `datasets/processed/` would all be wiped along with it. Two ways to fix this:
+
+- **S3-backed state** (`utils/core/cloud_state.py`) - set `STATE_S3_BUCKET=sphoorthq-geoverse` and
+  `STATE_S3_PREFIX=datasets` (this dev setup exports both, see [AWS credentials](#aws-credentials) above)
+  and the model registry (`utils/registry/`) and job/run history (`utils/jobs/`, `utils/observability/run_logger.py`)
+  read and write S3 as the source of truth instead of local disk, so that state survives a redeploy without
+  needing a paid plan at all - and, with the prefix above, lands at the exact same
+  `s3://sphoorthq-geoverse/datasets/processed/models/registry/...` and
+  `s3://sphoorthq-geoverse/datasets/reports/{jobs,runs}/...` paths the one-time full dataset mirror already
+  populated, so existing registered model versions and job/run history are visible immediately, not just
+  new ones going forward. See [config/platform.yaml](config/platform.yaml) for the full env var list. This
+  doesn't cover `users.db`/`.jwt_secret` (a live SQLite file isn't safe to point at S3 - no real file
+  locking) - those still need the option below, or a real database service, if accounts need to survive
+  redeploys too.
+- **Render persistent disk** (paid plan) mounted at `datasets/` - covers everything including the auth DB.
+  `render.yaml` has that block ready, commented out.
 
 ### Environment variables
 
-All optional - sensible dev defaults otherwise:
+All optional - sensible dev defaults otherwise. This dev setup exports `STATE_S3_*` and `AWS_PROFILE` as
+persistent user env vars (see [Persistence](#persistence) / [AWS credentials](#aws-credentials) above), so
+the app runs S3-backed by default here without re-exporting anything per shell:
 
 | Variable | Purpose | Default |
 |---|---|---|
 | `JWT_SECRET` | Signs session + password-reset tokens. Auto-generates and persists one to `datasets/metadata/.jwt_secret` if unset - fine for a single instance, but set this explicitly if you ever run more than one API process, or if `datasets/` isn't persisted (see above) and you don't want every restart to invalidate every session | auto-generated |
 | `WEB_BASE_URL` | Base URL baked into password-reset email links | none needed - derived from the actual incoming request, so it's automatically correct for wherever you deploy this. Only set it if the UI is ever hosted on a different origin than the API |
 | `SMTP_HOST` / `SMTP_USER` / `SMTP_PASSWORD` | Send real password-reset emails (see `config/platform.yaml`) | unset - reset links are written to `datasets/metadata/outbox/` and returned directly in the API response instead |
+| `AUTH0_DOMAIN` / `AUTH0_CLIENT_ID` / `AUTH0_CLIENT_SECRET` | Enables the "Log in with Auth0" button (see [config/platform.yaml](config/platform.yaml)) | this dev setup: set, app `sphoorthq-geoverse`. Unset elsewhere -> `/api/auth/auth0/login` returns 501 and the button doesn't work; self-service login is unaffected either way |
 | `CORS_ORIGINS` | Extra allowed origins (comma-separated), only needed if the UI is ever hosted separately from the API | dev-server ports only |
 | `IBM_QUANTUM_TOKEN` / `IBM_QUANTUM_INSTANCE` / `IBM_QUANTUM_CHANNEL` | Route the Quantum tab's "Real IBM Hardware" mode through your account by default, without typing a token into the UI each run (see [config/platform.yaml](config/platform.yaml)) | unset - the Quantum tab's "Real IBM Hardware" mode still works by entering credentials per-request in the UI; without either, it falls back to "Qiskit Simulation" behavior only if you pick that mode explicitly |
+| `STATE_S3_BUCKET` / `STATE_S3_PREFIX` / `STATE_S3_REGION` | Makes the model registry + job/run history S3-backed instead of local-disk-backed (see [Persistence](#persistence) above) | this dev setup: `sphoorthq-geoverse` / `datasets` / `us-east-1` - set, so S3-backed by default here. Unset elsewhere -> local-disk-backed, which a stateless redeploy (e.g. Render free tier) wipes |
 
 ## Checks
 
