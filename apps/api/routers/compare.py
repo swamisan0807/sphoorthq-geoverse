@@ -36,12 +36,14 @@ def _latest_quantum_metrics(jobs: list, is_real_hardware: bool) -> dict | None:
     S3 cost of this endpoint.
 
     Requires extra["is_benchmark"] (apps/api/routers/quantum.py's
-    /kernel-svm/benchmark, which pools its sample across many chips the
-    same way notebooks 05/06 and the classical RF/U-Net registry metrics
-    do) rather than matching *any* successful quantum job - the interactive
-    single-chip /kernel-svm explorer produces real metrics too, but on one
-    chip's pixels, which isn't a fair number to plot next to models
-    evaluated across dozens of chips."""
+    /kernel-svm, which pools its sample across many chips the same way
+    notebooks 05/06 and the classical RF/U-Net registry metrics do) rather
+    than matching *any* successful quantum job - an earlier version of that
+    endpoint let a caller test one specific chip, which produced real
+    metrics too, but on one chip's pixels, not a fair number to plot next
+    to models evaluated across dozens of chips. That single-chip path is
+    gone now, but this check stays: any job recorded while it still existed
+    would otherwise resurface here as if it were a fair number."""
     for job in jobs:
         if (
             job.kind == "quantum"
