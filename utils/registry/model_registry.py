@@ -22,6 +22,7 @@ already laid out on local disk / in the project's S3 dataset mirror):
 import json
 import shutil
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from utils.core import cloud_state
@@ -29,6 +30,20 @@ from utils.core.paths import REGISTRY_DIR
 
 # model_name -> (source file the notebook actually saves, file extension)
 MODEL_SOURCES: dict[str, tuple[Path, str]] = {}
+
+# The models this platform actually trains/registers (04_classical_ml,
+# 09_patch_unet) - single source of truth for apps/api/routers/registry.py
+# and observability.py, which both need the same list to know which models
+# to ask the registry about.
+KNOWN_MODELS = ["classical_rf", "patch_unet"]
+
+# Read-through cache for manifests fetched from S3, keyed by "model_name/v<N>"
+# - a manifest is written once at registration (register_version) and never
+# modified again, so caching it forever is safe. Without this, list_versions()
+# re-fetches every version's manifest.json individually from S3 (one GET
+# each, no batching) on every single call - the same N+1 pattern
+# utils/jobs/engine.py's list_jobs() had, same fix.
+_s3_manifest_cache: dict[str, dict] = {}
 
 
 def _s3_key(*parts: str) -> str:
@@ -91,11 +106,27 @@ def register_version(
 def list_versions(model_name: str) -> list[dict]:
     if cloud_state.enabled():
         manifests = []
+        to_fetch = []
         for key in cloud_state.list_keys(_s3_key(model_name) + "/"):
-            if key.endswith("manifest.json"):
-                m = cloud_state.read_json(key)
+            if not key.endswith("manifest.json"):
+                continue
+            # key looks like ".../<model_name>/v<N>/manifest.json" - "v<N>" is
+            # a stable cache id regardless of STATE_S3_PREFIX.
+            version_part = key.rsplit("/", 2)[-2]
+            cache_id = f"{model_name}/{version_part}"
+            if cache_id in _s3_manifest_cache:
+                manifests.append(_s3_manifest_cache[cache_id])
+            else:
+                to_fetch.append((cache_id, key))
+
+        if to_fetch:
+            with ThreadPoolExecutor(max_workers=min(16, len(to_fetch))) as pool:
+                fetched = pool.map(lambda t: (t[0], cloud_state.read_json(t[1])), to_fetch)
+            for cache_id, m in fetched:
                 if m:
+                    _s3_manifest_cache[cache_id] = m
                     manifests.append(m)
+
         return sorted(manifests, key=lambda m: m["version"])
 
     model_dir = _model_dir(model_name)

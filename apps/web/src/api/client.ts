@@ -119,6 +119,19 @@ export interface QuantumRequest {
   ibm_channel?: string;
 }
 
+// No chip_id: /api/quantum/kernel-svm/benchmark pools its train/test
+// pixels across many chips itself (same sampling notebooks 05/06 use) -
+// see QuantumResponse.is_benchmark.
+export interface QuantumBenchmarkRequest {
+  backend: "ibm";
+  n_train: number;
+  n_test: number;
+  force_simulation: boolean;
+  ibm_token?: string;
+  ibm_instance?: string;
+  ibm_channel?: string;
+}
+
 export interface ConnectRequest {
   ibm_token?: string;
   ibm_instance?: string;
@@ -133,12 +146,15 @@ export interface ConnectResponse {
 }
 
 export interface QuantumResponse {
-  chip_id: string;
+  chip_id: string | null; // null for a benchmark run (pooled across many chips)
+  is_benchmark: boolean;
   backend: string;
   is_real_hardware: boolean;
   backend_name: string;
   n_train: number;
   n_test: number;
+  n_train_chips: number | null;
+  n_test_chips: number | null;
   n_fit_circuits: number;
   n_predict_circuits: number;
   metrics: Record<string, number>;
@@ -255,6 +271,10 @@ export const api = {
 
   quantumConnect: (req: ConnectRequest) => postJSON<ConnectResponse>("/api/quantum/connect", req),
   quantumKernelSvm: (req: QuantumRequest) => postJSON<QuantumResponse>("/api/quantum/kernel-svm", req),
+  // The fair-comparison run the Compare page's quantum series is sourced
+  // from - see QuantumResponse.is_benchmark.
+  quantumBenchmark: (req: QuantumBenchmarkRequest) =>
+    postJSON<QuantumResponse>("/api/quantum/kernel-svm/benchmark", req),
 
   jobNotebooks: () => getJSON<string[]>("/api/jobs/notebooks"),
   jobs: (limit = 30, mine = false) => getJSON<JobRecord[]>(`/api/jobs?limit=${limit}&mine=${mine}`),

@@ -19,6 +19,7 @@ import sys
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 
 from utils.core import cloud_state
@@ -61,6 +62,18 @@ class JobRecord:
 
 _jobs: dict[str, JobRecord] = {}
 _lock = threading.Lock()
+
+# Read-through cache for job records fetched from S3, keyed by job_id - only
+# ever populated with *terminal* records (success/failed), which can never
+# change again, so caching them forever is safe. Without this, list_jobs()
+# re-fetches every job individually from S3 (one GET each, no batching) on
+# every single call - fine for a handful of jobs, but real end-to-end
+# testing quickly racks up dozens of job records, and every Jobs-page poll
+# or /api/compare/data call was re-paying that full N-GET cost from a cold
+# process (no warm _jobs cache) every time. queued/running jobs are
+# deliberately never cached here so a status change is still picked up.
+_TERMINAL_STATUSES = {"success", "failed"}
+_s3_job_cache: dict[str, JobRecord] = {}
 
 
 def _persist(job: JobRecord) -> None:
@@ -192,9 +205,16 @@ def get_job(job_id: str) -> JobRecord | None:
     with _lock:
         if job_id in _jobs:
             return _jobs[job_id]
+    if job_id in _s3_job_cache:
+        return _s3_job_cache[job_id]
     if cloud_state.enabled():
         data = cloud_state.read_json(f"reports/jobs/{job_id}.json")
-        return JobRecord(**data) if data else None
+        if not data:
+            return None
+        record = JobRecord(**data)
+        if record.status in _TERMINAL_STATUSES:
+            _s3_job_cache[job_id] = record
+        return record
     path = JOBS_DIR / f"{job_id}.json"
     if not path.exists():
         return None
@@ -211,15 +231,32 @@ def list_jobs(limit: int = 30, triggered_by: str | None = None) -> list[JobRecor
         in_memory = {j.job_id: j for j in _jobs.values()}
 
     if cloud_state.enabled():
+        to_fetch = []
         for obj in cloud_state.list_objects("reports/jobs/"):
             if not obj["key"].endswith(".json"):
                 continue
             job_id = obj["key"].removeprefix("reports/jobs/").removesuffix(".json")
             if job_id in in_memory:
                 continue
-            data = cloud_state.read_json(obj["key"])
-            if data:
-                in_memory[job_id] = JobRecord(**data)
+            if job_id in _s3_job_cache:
+                in_memory[job_id] = _s3_job_cache[job_id]
+                continue
+            to_fetch.append((job_id, obj["key"]))
+
+        # Real, separate network round trips (no batch-get in S3) - fetch
+        # concurrently rather than one-by-one, since a page load waiting on
+        # dozens of sequential GETs is the whole problem this cache exists
+        # to avoid on a cold process (empty cache) or after many new jobs.
+        if to_fetch:
+            with ThreadPoolExecutor(max_workers=min(16, len(to_fetch))) as pool:
+                fetched = pool.map(lambda t: (t[0], cloud_state.read_json(t[1])), to_fetch)
+            for job_id, data in fetched:
+                if not data:
+                    continue
+                record = JobRecord(**data)
+                in_memory[job_id] = record
+                if record.status in _TERMINAL_STATUSES:
+                    _s3_job_cache[job_id] = record
     elif JOBS_DIR.exists():
         for path in JOBS_DIR.glob("*.json"):
             if path.stem in in_memory:

@@ -26,7 +26,7 @@ from qiskit_aer.primitives import Sampler as AerSampler
 
 CONNECT_TIMEOUT_S = 15.0  # bounds account auth + backend-catalog calls
 LEAST_BUSY_TIMEOUT_S = 8.0  # bounds the per-backend queue-status comparison
-JOB_RESULT_TIMEOUT_S = 60.0  # bounds each job.result() wait (queue + execution)
+JOB_RESULT_TIMEOUT_S = 600.0  # bounds each job.result() wait (queue + execution)
 
 
 def _call_with_timeout(fn, timeout_s: float, *args, **kwargs):

@@ -33,7 +33,10 @@ export default function StatusBadge({ status }: { status: string }) {
       {isGood && <CheckIcon />}
       {isCritical && <CrossIcon />}
       {!isGood && !isCritical && <span className={`status-dot${isRunning ? " pulse" : ""}`} />}
-      {status}
+      {/* "ok"/"success" is redundant next to the checkmark itself - every other
+          status (failed, running, queued) still shows its label since a bare
+          dot alone doesn't distinguish "running" from "queued". */}
+      {!isGood && status}
     </span>
   );
 }

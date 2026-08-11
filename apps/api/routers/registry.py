@@ -5,10 +5,9 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from utils.registry import model_registry
+from utils.registry.model_registry import KNOWN_MODELS
 
 router = APIRouter(prefix="/api/registry", tags=["registry"])
-
-KNOWN_MODELS = ["classical_rf", "patch_unet"]
 
 
 class RestoreRequest(BaseModel):

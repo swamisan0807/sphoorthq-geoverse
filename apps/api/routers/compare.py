@@ -24,13 +24,31 @@ def _strip_prefix(metrics: dict) -> dict:
     return {k.removeprefix("valid_"): v for k, v in metrics.items()}
 
 
-def _latest_quantum_metrics(is_real_hardware: bool) -> dict | None:
-    """Most recent successful quantum job that ran on the given kind of
-    backend - simulator and real hardware are tracked as separate series so
-    a real-hardware run is never averaged into or mistaken for a simulator
-    result (the whole point of is_real_hardware being logged per job)."""
-    for job in list_jobs(limit=100):
-        if job.kind == "quantum" and job.status == "success" and job.extra.get("is_real_hardware") == is_real_hardware:
+def _latest_quantum_metrics(jobs: list, is_real_hardware: bool) -> dict | None:
+    """Most recent successful *benchmark* quantum job that ran on the given
+    kind of backend - simulator and real hardware are tracked as separate
+    series so a real-hardware run is never averaged into or mistaken for a
+    simulator result (the whole point of is_real_hardware being logged per
+    job). Takes the already-fetched job list rather than calling
+    list_jobs() itself - that call is a real, uncached S3 round trip per
+    job (see utils/jobs/engine.py), so fetching it once and filtering it
+    twice here (sim + real hardware) instead of twice end-to-end halves the
+    S3 cost of this endpoint.
+
+    Requires extra["is_benchmark"] (apps/api/routers/quantum.py's
+    /kernel-svm/benchmark, which pools its sample across many chips the
+    same way notebooks 05/06 and the classical RF/U-Net registry metrics
+    do) rather than matching *any* successful quantum job - the interactive
+    single-chip /kernel-svm explorer produces real metrics too, but on one
+    chip's pixels, which isn't a fair number to plot next to models
+    evaluated across dozens of chips."""
+    for job in jobs:
+        if (
+            job.kind == "quantum"
+            and job.status == "success"
+            and job.extra.get("is_benchmark") is True
+            and job.extra.get("is_real_hardware") == is_real_hardware
+        ):
             return job.extra.get("metrics")
     return None
 
@@ -43,10 +61,11 @@ def _collect_series() -> dict[str, dict]:
     unet_manifest = model_registry.get_current_manifest("patch_unet")
     if unet_manifest:
         series["U-Net (classical)"] = _strip_prefix(unet_manifest["metrics"])
-    sim_metrics = _latest_quantum_metrics(is_real_hardware=False)
+    jobs = list_jobs(limit=100)
+    sim_metrics = _latest_quantum_metrics(jobs, is_real_hardware=False)
     if sim_metrics:
         series["Quantum kernel SVM (simulator)"] = sim_metrics
-    real_metrics = _latest_quantum_metrics(is_real_hardware=True)
+    real_metrics = _latest_quantum_metrics(jobs, is_real_hardware=True)
     if real_metrics:
         series["Quantum kernel SVM (real hardware)"] = real_metrics
     return series
