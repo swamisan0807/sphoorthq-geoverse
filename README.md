@@ -1,7 +1,7 @@
 # SphoorthiQ — SAR Flood Segmentation, Classical + Quantum ML Platform
 
 Cloud-agnostic ingestion (S3 / Azure ADLS Gen2 / GCS / public HTTPS / local), notebook-driven processing
-and feature engineering, a classical ML (Random Forest + U-Net) + quantum ML hybrid (real IBM Quantum
+and feature engineering, a classical ML (Decision Tree + U-Net) + quantum ML hybrid (real IBM Quantum
 connectivity, local-simulator by default), a systematic robustness sweep, per-stage observability
 logging, and a full web platform (self-service auth, job engine, model registry, quantum inference) on
 top.
@@ -14,10 +14,37 @@ architecture/dataflow diagram.
 
 ## Contents
 
+- [Status](#status) - what's implemented right now, in plain terms
 - [Quickstart](#quickstart) - run the notebooks
 - [Web UI](#web-ui) - what the platform layer does, run it locally
 - [Deploy](#deploy) - run it as a real, browser-reachable service (incl. Render)
 - [Checks](#checks) - lint/test manually (no CI configured)
+
+## Status
+
+Quick orientation for anyone picking this up mid-stream - what the classical-vs-quantum comparison
+actually measures right now, and why, since both sides of it changed recently.
+
+- **Classical baseline (`04_classical_ml.ipynb`)** is a **Decision Tree**
+  (`sklearn.tree.DecisionTreeClassifier`, `class_weight="balanced"`, tuned via `GridSearchCV` scored on
+  precision) - not the Random Forest this project started with, swapped in "Improvement of classical
+  model". Trains on a pixel table pooled from **250 train chips / 50 valid chips / 40 event-holdout test
+  chips** (up from an earlier 20/8/44) - still a bounded subsample of the full 252-chip train split, not
+  all of it; push `N_TRAIN_CHIPS`/`N_VALID_CHIPS`/`N_TEST_CHIPS` further if you want more.
+- **Quantum kernel SVM (`05_qml_ibm.ipynb`, `06_hybrid_ensemble_evaluation.ipynb`,
+  `/api/quantum/kernel-svm`)** trains and evaluates on pixels pooled across *many* chips from those same
+  two splits - sen1floods11's train split for training pixels, this project's own event-holdout split for
+  test pixels - instead of one chosen chip. That's a fix, not the original design: earlier versions of
+  this code drew their whole sample from a single chip (`load_split("train")[3]`), which made any
+  Compare-page number quantum produced unfair next to a classical model evaluated across dozens of chips.
+  `utils/fusion/pixel_features.py`'s `sample_balanced_pixels_across_chips()` is the fix, and both the
+  notebooks and the live API use it now - the same train/test splits, same seeds, real chip diversity on
+  both sides. Confirmed working end-to-end, including a real run against actual IBM Quantum hardware
+  (`ibm_marrakesh`), not just the local simulator.
+- **Compare page** (`apps/api/routers/compare.py`, the Compare tab) only ever plots quantum kernel SVM
+  runs tagged `is_benchmark=True` in job history - i.e. only runs that went through the multi-chip pooling
+  above - never a stray single-chip result. Whatever it shows is always the fair comparison, not whichever
+  quantum job happened to run most recently.
 
 ## Quickstart
 
@@ -31,7 +58,7 @@ Run `notebooks/01_ingest.ipynb` through `09_patch_unet.ipynb` in order. They ope
 `datasets/raw/sen1floods11/` (446 real hand-labeled SAR flood chips - see [Data](#data) below for how
 that gets there).
 
-- `04_classical_ml.ipynb` - Random Forest (pixel-wise).
+- `04_classical_ml.ipynb` - Decision Tree (pixel-wise).
 - `05_qml_ibm.ipynb` / `06_hybrid_ensemble_evaluation.ipynb` - quantum kernel SVM + hybrid vote.
   Default to `FORCE_SIMULATION = True` - local simulator only, no real hardware, no queue, no cost.
   Set `FORCE_SIMULATION = False` and supply credentials (see
@@ -73,7 +100,8 @@ runs also log into this same job history (`kind: "quantum"`), so real hardware v
 visible in one place.
 
 **Quantum** (`apps/api/routers/quantum.py`, `utils/qml/`) - runs a real quantum-kernel SVM (Havlicek et al.
-2019) fresh on a small balanced pixel sample. The UI picks between **Qiskit Simulation** (local
+2019) fresh on a small balanced pixel sample pooled across many chips (see [Status](#status) above), not a
+single chosen one. The UI picks between **Qiskit Simulation** (local
 `AerSimulator`, no network call) and **Real IBM Hardware** - the latter lets you type in an IBM Quantum
 API token/instance/channel for just that one run (never written to disk, never logged) instead of
 requiring server-side env vars. Picking real hardware first calls a fast `/api/quantum/connect`
@@ -93,9 +121,10 @@ local disk otherwise - see [Persistence](#persistence).
 **Auto-retrain on new data** (`utils/pipeline/auto_retrain.py`) - diffs the on-disk chip set against a
 baseline manifest; if new chips appear, triggers real retraining jobs for both classical models.
 
-**Compare** (`apps/api/routers/compare.py`) - the current registry-pointed RF/U-Net versions against the
-most recent successful quantum kernel SVM run *of each kind* - a simulator run and a real-hardware run
-are tracked as separate series and never averaged together. Client-side interactive chart (hover for
+**Compare** (`apps/api/routers/compare.py`) - the current registry-pointed Decision Tree/U-Net versions
+against the most recent successful *multi-chip* quantum kernel SVM run *of each kind* - a simulator run
+and a real-hardware run are tracked as separate series and never averaged together (see [Status](#status)
+above for why "multi-chip" matters here). Client-side interactive chart (hover for
 exact values, keyboard-reachable) plus a server-rendered PNG download; both use the same validated
 CVD-safe 4-color palette. The page polls every 5s (with a live/paused toggle) so a job finishing anywhere
 else in the app shows up here without a manual reload.
@@ -118,7 +147,7 @@ npm run dev
 
 Open `http://localhost:5173`, sign up (any username/password, 8+ chars), then log in. Run
 `04_classical_ml` and `09_patch_unet` from the Jobs tab first (or from Jupyter) so the Inference tab's
-Random Forest / U-Net options have a model to load.
+Decision Tree / U-Net options have a model to load.
 
 ## Deploy
 

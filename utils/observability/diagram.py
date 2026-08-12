@@ -28,7 +28,7 @@ flowchart TB
     end
 
     subgraph CLASSICAL["Classical ML"]
-        RF["Random Forest\\n(notebook 04, pixel-wise)"]
+        RF["Decision Tree\\n(notebook 04, pixel-wise)"]
         UNET["U-Net\\n(notebook 09, patch-wise)"]
     end
 

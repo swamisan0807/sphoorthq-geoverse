@@ -59,7 +59,11 @@ def _collect_series() -> dict[str, dict]:
     series = {}
     rf_manifest = model_registry.get_current_manifest("classical_rf")
     if rf_manifest:
-        series["Random Forest (classical)"] = _strip_prefix(rf_manifest["metrics"])
+        # "classical_rf" is the registry's model key/on-disk name from when this was a Random Forest -
+        # left as-is (renaming it would break every already-registered version's file path), but the
+        # model itself is a Decision Tree as of notebook 04's "Improvement of classical model" - the
+        # *label* here reflects the actual model, not the legacy key name.
+        series["Decision Tree (classical)"] = _strip_prefix(rf_manifest["metrics"])
     unet_manifest = model_registry.get_current_manifest("patch_unet")
     if unet_manifest:
         series["U-Net (classical)"] = _strip_prefix(unet_manifest["metrics"])
