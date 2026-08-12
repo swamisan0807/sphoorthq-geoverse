@@ -83,7 +83,7 @@ export default function InferencePage() {
         <label>
           model
           <select value={model} onChange={(e) => setModel(e.target.value as "rf" | "unet")}>
-            <option value="rf">Random Forest (pixel-wise)</option>
+            <option value="rf">Decision Tree (pixel-wise)</option>
             <option value="unet">U-Net (patch-wise)</option>
           </select>
         </label>

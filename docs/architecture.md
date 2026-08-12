@@ -10,7 +10,7 @@ computational efficiency in complex imaging environments" via a classical ML + q
    bucket / local disk) through one connector interface - `utils/ingestion/`.
 2. **Process, engineer features, train, and evaluate in Jupyter notebooks** - `notebooks/01`-`09` - not a
    hidden service. Every stage is inspectable and re-runnable.
-3. **ML + QML hybrid**: a classical Random Forest (pixel-wise, notebook `04`) and U-Net (patch-wise,
+3. **ML + QML hybrid**: a classical Decision Tree (pixel-wise, notebook `04`) and U-Net (patch-wise,
    notebook `09`) baseline (`utils/ai/classic/`) and a quantum kernel SVM that connects to real
    **IBM Quantum** (via `qiskit-ibm-runtime`'s `QiskitRuntimeService`) - `utils/qml/`. Results from both
    feed a hybrid ensemble (notebook `06`). Notebooks `05`/`06` default to `FORCE_SIMULATION = True`
@@ -49,7 +49,7 @@ flowchart TB
     end
 
     subgraph CLASSICAL["Classical ML"]
-        RF["Random Forest\n(notebook 04, pixel-wise)"]
+        RF["Decision Tree\n(notebook 04, pixel-wise)"]
         UNET["U-Net\n(notebook 09, patch-wise)"]
     end
 

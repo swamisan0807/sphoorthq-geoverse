@@ -1,4 +1,4 @@
-"""Runs the real trained models (Random Forest from notebook 04, U-Net from
+"""Runs the real trained models (Decision Tree from notebook 04, U-Net from
 notebook 09) against a chosen chip - same code paths the notebooks use,
 just invoked from a request instead of a cell."""
 
@@ -51,7 +51,7 @@ def _load_rf():
     global _rf_cache
     path = _rf_path()
     if not path.exists():
-        raise HTTPException(404, "Random Forest model not found - run notebooks/04_classical_ml.ipynb first")
+        raise HTTPException(404, "Decision Tree model not found - run notebooks/04_classical_ml.ipynb first")
     if _rf_cache is None or _rf_cache[0] != str(path):
         with open(path, "rb") as f:
             _rf_cache = (str(path), pickle.load(f))

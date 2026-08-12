@@ -76,7 +76,7 @@ export default function QuantumPage() {
         Train pixels are pooled across the sen1floods11 train split, test pixels across this project's own
         event-holdout split (Nigeria + Somalia) - same sampling notebooks 05/06 use for their
         fair-comparison fix, spread across as many distinct chips as the sample needs rather than one
-        chosen chip - so the result here is directly comparable to the classical Random Forest/U-Net on the
+        chosen chip - so the result here is directly comparable to the classical Decision Tree/U-Net on the
         Compare page, which are also evaluated across many chips.
       </p>
 
