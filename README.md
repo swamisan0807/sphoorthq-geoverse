@@ -4,12 +4,11 @@ Cloud-agnostic ingestion, notebook-driven processing, a classical ML (Decision T
 (real IBM Quantum) hybrid, a robustness sweep, per-stage observability, and a full web platform on top.
 
 Built for Thales' **SAR Image Analysis** track - Quantum Innovation Summit 2026, Algorithm Design
-Competition.
+Competition. Full architecture/dataflow diagram: [docs/architecture.md](docs/architecture.md).
 
 ## Contents
 
 - [How it works](#how-it-works) - the whole project, step by step
-- [Status](#status) - what changed most recently
 - [Quickstart](#quickstart) - run the notebooks
 - [Web UI](#web-ui) - what the platform layer does, run it locally
 - [Deploy](#deploy) - run it as a real, browser-reachable service (incl. Render)
@@ -17,47 +16,25 @@ Competition.
 
 ## How it works
 
-```mermaid
-flowchart LR
-    A["SAR flood imagery\n(sen1floods11, 446 chips)"] --> B["Clean + denoise\n(notebook 02)"]
-    B --> C["Per-pixel features\n(notebook 03)"]
-    C --> D["Classical model\nDecision Tree / U-Net\n(notebook 04 / 09)"]
-    C --> E["Quantum model\nquantum kernel SVM\n(notebook 05 / 06)"]
-    D --> F["Fair comparison\n(same dataset splits)"]
-    E --> F
-    F --> G["Web app\nCompare / Jobs / Registry"]
-```
-
 1. **Get real flood-mapping data** - [sen1floods11](https://github.com/cloudtostreet/Sen1Floods11), 446
    real SAR satellite images of actual flood events, hand-labeled water / not-water. `notebooks/01_ingest.ipynb`.
 2. **Clean it up** - raw radar imagery is noisy ("speckle"); filter it and put values on a consistent
    scale. `notebooks/02_process.ipynb`.
 3. **Turn pixels into features** - reflectivity, ratio/difference, local texture, per pixel.
    `notebooks/03_feature_engineering.ipynb`.
-4. **Train a classical model** - a **Decision Tree** classifies each pixel water / not-water (baseline);
-   a U-Net does the same image-wise. `notebooks/04_classical_ml.ipynb` / `09_patch_unet.ipynb`.
+4. **Train a classical model** - a **Decision Tree** (`class_weight="balanced"`, tuned via
+   `GridSearchCV`) classifies each pixel water / not-water, trained on **250 train / 50 valid / 40 test
+   chips**; a U-Net does the same image-wise. `notebooks/04_classical_ml.ipynb` / `09_patch_unet.ipynb`.
 5. **Train a quantum model** - a **quantum kernel SVM** does the same classification, with pixel
    similarity computed by a real quantum circuit (IBM Quantum hardware, or a local simulator).
    `notebooks/05_qml_ibm.ipynb` / `06_hybrid_ensemble_evaluation.ipynb`.
-6. **Compare them fairly** - both trained/tested on samples from the *same* dataset splits (see
-   [Status](#status)). The **Compare** tab shows both side by side, live.
+6. **Compare them fairly** - both models train/test on samples pooled from the *same* dataset splits and
+   comparable chip counts, via `sample_balanced_pixels_across_chips()`
+   (`utils/fusion/pixel_features.py`) - confirmed working end-to-end, including on real IBM Quantum
+   hardware. The **Compare** tab shows both side by side, live, and only ever plots runs that went
+   through that fair sampling.
 7. **All of it behind a real web app** - log in, run any step, watch results roll in. See
    [Web UI](#web-ui).
-
-Full architecture/dataflow diagram (every subsystem, not just the happy path): [docs/architecture.md](docs/architecture.md).
-
-## Status
-
-- **Classical baseline** is a **Decision Tree** (`class_weight="balanced"`, tuned via `GridSearchCV`) -
-  not the Random Forest this project started with. Trains on **250 train / 50 valid / 40 test chips**
-  (up from 20/8/44) - still a bounded subsample of the 252-chip train split, not all of it.
-- **Quantum kernel SVM** now trains/tests on pixels pooled across *many* chips from those same splits,
-  not one chosen chip - the earlier design's unfairness (a classical model seeing dozens of chips vs. a
-  quantum model seeing one). Fixed by `sample_balanced_pixels_across_chips()`
-  (`utils/fusion/pixel_features.py`), used by both notebooks and the live API. Confirmed working
-  end-to-end, including on real IBM Quantum hardware (`ibm_marrakesh`), not just the simulator.
-- **Compare page** only ever plots quantum runs tagged `is_benchmark=True` - i.e. ones that went through
-  the multi-chip pooling above - so it can never show a stray single-chip result.
 
 ## Quickstart
 
@@ -88,7 +65,7 @@ circuits through the same `utils/qml/` code, the Jobs tab runs real `jupyter nbc
 | **Quantum** | Runs a real quantum-kernel SVM on a multi-chip sample. Pick **Qiskit Simulation** or **Real IBM Hardware** (paste a token for just that run, or set env vars once - see [Environment variables](#environment-variables)). Every IBM Cloud call is timeout-bounded so a slow/rate-limited account fails clearly instead of hanging. | `apps/api/routers/quantum.py`, `utils/qml/` |
 | **Model registry** | Every successful `04`/`09` job auto-registers an immutable version (file + metrics). A "current" pointer decides what inference loads; "restore" needs no retraining. | `utils/registry/` |
 | **Auto-retrain** | Diffs on-disk chips against a baseline; new chips trigger real retraining jobs. | `utils/pipeline/auto_retrain.py` |
-| **Compare** | Registry-pointed Decision Tree/U-Net vs. the latest multi-chip quantum run, sim and real-hardware tracked as separate series (see [Status](#status)). Interactive chart + PNG download, live-polls every 5s. | `apps/api/routers/compare.py` |
+| **Compare** | Registry-pointed Decision Tree/U-Net vs. the latest fair (multi-chip) quantum run, sim and real-hardware tracked as separate series. Interactive chart + PNG download, live-polls every 5s. | `apps/api/routers/compare.py` |
 | **Knowledge graph** | Built only from relationships the platform actually recorded - no fabricated edges. | `utils/graph/` |
 
 ### Run locally (dev)
