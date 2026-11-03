@@ -17,7 +17,7 @@ export default function ResetPasswordPage({ onAuthed }: { onAuthed: () => void }
     e.preventDefault();
     setError(null);
     if (password !== confirm) {
-      setError("passwords don't match");
+      setError("Those two passwords don't match - try typing them again.");
       return;
     }
     setLoading(true);
@@ -50,12 +50,12 @@ export default function ResetPasswordPage({ onAuthed }: { onAuthed: () => void }
 
         {!token ? (
           <p className="error">
-            No reset token in this link. Use the "Forgot password?" link on the login page to request a new one.
+            This reset link looks incomplete. Use "Forgot password?" on the login page to get a fresh one.
           </p>
         ) : (
           <form onSubmit={submit}>
             <label>
-              new password
+              New password
               <input
                 type="password"
                 value={password}
@@ -66,7 +66,7 @@ export default function ResetPasswordPage({ onAuthed }: { onAuthed: () => void }
               />
             </label>
             <label>
-              confirm password
+              Confirm new password
               <input
                 type="password"
                 value={confirm}
@@ -76,7 +76,7 @@ export default function ResetPasswordPage({ onAuthed }: { onAuthed: () => void }
                 minLength={8}
               />
             </label>
-            <p className="hint">min 8 characters. This link expires 15 minutes after it was requested.</p>
+            <p className="hint">At least 8 characters. This link expires 15 minutes after you asked for it.</p>
             {error && <p className="error">{error}</p>}
             <button type="submit" disabled={loading} className="submit">
               {loading ? "..." : "Reset password"}

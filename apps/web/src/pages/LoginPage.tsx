@@ -53,7 +53,7 @@ export default function LoginPage({ onAuthed }: { onAuthed: () => void }) {
         <h1>
           Sphoorthi<span className="brand-q">Q</span>
         </h1>
-        <p className="subtitle">SAR Flood Segmentation — Classical + Quantum ML Platform</p>
+        <p className="subtitle">Quantum Optimization for SAR Vehicle Segmentation</p>
 
         {mode !== "forgot" && (
           <div className="login-tabs">
@@ -72,9 +72,9 @@ export default function LoginPage({ onAuthed }: { onAuthed: () => void }) {
             {forgotResult.dev_reset_link && (
               <>
                 <p className="hint">
-                  SMTP isn't configured on this server (see <code>config/platform.yaml</code>: <code>SMTP_HOST</code>/
-                  <code>SMTP_USER</code>/<code>SMTP_PASSWORD</code>), so no email was actually sent. Local/dev link
-                  instead:
+                  Email isn't set up on this server (the <code>SMTP_HOST</code>, <code>SMTP_USER</code> and{" "}
+                  <code>SMTP_PASSWORD</code> settings described in <code>config/platform.yaml</code> are empty), so
+                  nothing was actually sent. Here's your reset link for local use instead:
                 </p>
                 <a className="dev-reset-link" href={forgotResult.dev_reset_link}>
                   {forgotResult.dev_reset_link}
@@ -88,7 +88,7 @@ export default function LoginPage({ onAuthed }: { onAuthed: () => void }) {
         ) : (
           <form onSubmit={submit}>
             <label>
-              username
+              Username
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -99,7 +99,7 @@ export default function LoginPage({ onAuthed }: { onAuthed: () => void }) {
             </label>
             {mode !== "forgot" && (
               <label>
-                password
+                Password
                 <input
                   type="password"
                   value={password}
@@ -110,8 +110,8 @@ export default function LoginPage({ onAuthed }: { onAuthed: () => void }) {
                 />
               </label>
             )}
-            {mode === "signup" && <p className="hint">min 8 characters. Any username creates a new account - no invite needed.</p>}
-            {mode === "forgot" && <p className="hint">enter the username (or email) you signed up with - we'll send a reset link.</p>}
+            {mode === "signup" && <p className="hint">At least 8 characters. Pick any username to create an account - no invite needed.</p>}
+            {mode === "forgot" && <p className="hint">Enter the username (or email) you signed up with and we'll send you a reset link.</p>}
             {mode === "login" && (
               <button type="button" className="link-button" onClick={() => switchMode("forgot")}>
                 Forgot password?

@@ -4,14 +4,8 @@ import { api, clearSession, getToken, getUsername, setUnauthorizedHandler } from
 import LoginPage from "./pages/LoginPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import Auth0CallbackPage from "./pages/Auth0CallbackPage";
-import DashboardPage from "./pages/DashboardPage";
-import CatalogPage from "./pages/CatalogPage";
-import InferencePage from "./pages/InferencePage";
-import QuantumPage from "./pages/QuantumPage";
-import JobsPage from "./pages/JobsPage";
-import RegistryPage from "./pages/RegistryPage";
-import ComparePage from "./pages/ComparePage";
-import GraphPage from "./pages/GraphPage";
+import MrfPage from "./pages/MrfPage";
+import AboutPage from "./pages/AboutPage";
 import Layout from "./components/Layout";
 import "./App.css";
 
@@ -42,7 +36,7 @@ function App() {
         path="/login"
         element={
           authed ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to="/" replace />
           ) : (
             <LoginPage
               onAuthed={() => {
@@ -84,17 +78,11 @@ function App() {
           )
         }
       >
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/catalog" element={<CatalogPage />} />
-        <Route path="/inference" element={<InferencePage />} />
-        <Route path="/quantum" element={<QuantumPage />} />
-        <Route path="/jobs" element={<JobsPage />} />
-        <Route path="/registry" element={<RegistryPage />} />
-        <Route path="/compare" element={<ComparePage />} />
-        <Route path="/graph" element={<GraphPage />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<MrfPage />} />
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-      <Route path="*" element={<Navigate to={authed ? "/dashboard" : "/login"} replace />} />
+      <Route path="*" element={<Navigate to={authed ? "/" : "/login"} replace />} />
     </Routes>
   );
 }

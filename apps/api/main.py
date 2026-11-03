@@ -1,7 +1,8 @@
-"""FastAPI app exposing the notebook pipeline (catalog, run history, saved
-models, architecture diagram, live inference) over HTTP for the web UI, and
-- once `apps/web` has been built - serving that built UI itself, so the
-whole platform is one process on one port.
+"""FastAPI app for SphoorthiQ - a single-page MRF/QAOA segmentation tool
+(the classical-graph-cut/Classiq-QAOA MRF pipeline on real MSTAR SAR
+vehicle-target chips) over HTTP, and - once `apps/web` has been built -
+serving that built UI itself, so the whole platform is one process on one
+port.
 
 Dev (two processes, hot reload):
     uvicorn apps.api.main:app --reload --port 8000
@@ -19,11 +20,11 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
-from apps.api.routers import auth, catalog, compare, graph, inference, jobs, observability, pipeline, quantum, registry
+from apps.api.routers import auth, mstar
 from apps.api.routers.auth import get_current_user
 from utils.core.paths import PROJECT_ROOT
 
-app = FastAPI(title="SphoorthiQ — SAR Flood Segmentation API")
+app = FastAPI(title="SphoorthiQ — SAR Vehicle Segmentation API")
 
 # Dev-mode origins (separate `npm run dev` on :5173/:5174) plus anything
 # listed in CORS_ORIGINS (comma-separated) for a real deployment where the
@@ -45,15 +46,7 @@ app.add_middleware(
 # logged in, matching "any new user can create the login for him".
 app.include_router(auth.router)
 _protected = [Depends(get_current_user)]
-app.include_router(catalog.router, dependencies=_protected)
-app.include_router(observability.router, dependencies=_protected)
-app.include_router(inference.router, dependencies=_protected)
-app.include_router(quantum.router, dependencies=_protected)
-app.include_router(jobs.router, dependencies=_protected)
-app.include_router(registry.router, dependencies=_protected)
-app.include_router(compare.router, dependencies=_protected)
-app.include_router(graph.router, dependencies=_protected)
-app.include_router(pipeline.router, dependencies=_protected)
+app.include_router(mstar.router, dependencies=_protected)
 
 
 @app.get("/api/health")
@@ -87,7 +80,7 @@ else:
     @app.get("/")
     def root():
         return {
-            "service": "SphoorthiQ — SAR Flood Segmentation API",
+            "service": "SphoorthiQ — SAR Vehicle Segmentation API",
             "web_ui": "not built yet - run: cd apps/web && npm run build (or `npm run dev` for local hot-reload dev)",
             "docs": "/docs",
         }

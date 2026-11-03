@@ -3,6 +3,105 @@
   font-size: 0.9rem;
 }
 
+.shell-single {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.topbar-single {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background:
+    linear-gradient(100deg, rgba(47, 111, 237, 0.35) 0%, transparent 40%),
+    linear-gradient(260deg, rgba(22, 163, 74, 0.3) 0%, transparent 45%),
+    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, #0a1226 0%, #16264d 50%, #0a1226 100%);
+  background-size: auto, auto, 22px 22px, auto;
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  box-shadow: var(--shadow);
+  border-bottom: 3px solid transparent;
+  border-image: var(--brand-gradient) 1;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.topbar-brand .brand-name {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.topbar-brand .brand-sub {
+  display: block;
+  font-size: 0.72rem;
+  color: #a9b6d6;
+}
+
+.topbar-nav {
+  display: flex;
+  gap: 1.25rem;
+  flex: 1;
+}
+
+.topbar-nav a {
+  color: #cdd7f0;
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.topbar-nav a.active,
+.topbar-nav a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.about-nav {
+  display: flex;
+  gap: 1rem;
+  margin: 0.75rem 0 1.5rem;
+  flex-wrap: wrap;
+}
+
+.about-nav a {
+  color: var(--accent-2);
+  text-decoration: none;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.about-page section {
+  margin: 1.75rem 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.about-page h4 {
+  margin: 1.5rem 0 0.4rem;
+  font-size: 0.95rem;
+  color: var(--accent-2);
+}
+
+.about-dossier-list {
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .shell {
   display: grid;
   grid-template-columns: 220px 1fr;
@@ -124,6 +223,57 @@
   margin: 1.5rem 0;
 }
 
+.hero-intro {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem 1.7rem 1.4rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow);
+  text-align: left;
+  overflow: hidden;
+}
+
+.hero-intro::before {
+  /* decorative top accent bar - a plain absolutely-positioned div instead
+     of border-image, which only reliably paints a gradient on all four
+     sides at once, not just one */
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--brand-gradient);
+}
+
+.hero-intro h1 {
+  margin: 0 0 0.6rem;
+  font-size: 1.35rem;
+  line-height: 1.3;
+  background: var(--brand-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--accent-2); /* fallback if background-clip: text isn't supported */
+}
+
+.hero-intro p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  max-width: 900px;
+  text-align: left;
+}
+
+.hero-intro a {
+  color: var(--accent-2);
+  font-weight: 600;
+  text-decoration: none;
+}
+
 .page h2 {
   margin-top: 0;
 }
@@ -180,6 +330,11 @@
 
 .error {
   color: #f87171;
+  background: color-mix(in srgb, #f87171 12%, transparent);
+  border-left: 3px solid #f87171;
+  border-radius: 4px;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
 }
 
 table {
@@ -732,4 +887,711 @@ tr.selected {
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--accent);
+}
+
+.mrf-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 1.25rem;
+  margin-top: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .mrf-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mrf-panel {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: var(--shadow);
+  animation: mrf-panel-in 0.35s ease;
+  overflow: hidden;
+}
+
+.mrf-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--brand-gradient);
+}
+
+@keyframes mrf-panel-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mrf-shadow-panel {
+  margin-top: 1.25rem;
+}
+
+.mrf-panel h3 {
+  margin: 0 0 0.15rem;
+  font-size: 1.05rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.mrf-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.mrf-panel select,
+.mrf-panel input[type="number"] {
+  padding: 0.4rem;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.mrf-panel select:focus-visible,
+.mrf-panel input[type="number"]:focus-visible {
+  outline: none;
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 20%, transparent);
+}
+
+.mrf-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mrf-mode-toggle button,
+.mrf-tabs button {
+  flex: 1;
+  padding: 0.45rem;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.mrf-mode-toggle button:not(.active):hover,
+.mrf-tabs button:not(.active):hover {
+  border-color: var(--accent-2);
+  color: var(--fg);
+}
+
+.mrf-mode-toggle button.active,
+.mrf-tabs button.active {
+  background: var(--brand-gradient);
+  color: #06110c;
+  font-weight: 600;
+  border-color: transparent;
+}
+
+.mrf-dataset-controls,
+.mrf-upload-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mrf-roi-presets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.mrf-roi-preset-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.mrf-roi-preset-buttons button {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  background: var(--brand-gradient);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: #06110c;
+  font-weight: 600;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.mrf-roi-preset-buttons button:hover {
+  opacity: 0.85;
+}
+
+.mrf-roi-preset-buttons button:active {
+  transform: scale(0.97);
+}
+
+.mrf-thumb-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.mrf-thumb {
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.mrf-thumb:hover {
+  border-color: var(--accent-2);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(22, 33, 58, 0.12);
+}
+
+.mrf-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.mrf-thumb-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--panel-strong);
+}
+
+.mrf-thumb-selected {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-2) 22%, transparent);
+}
+
+.mrf-dropzone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.mrf-dropzone img {
+  max-width: 100%;
+  max-height: 100px;
+  border-radius: 4px;
+}
+
+.mrf-checkbox-row {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+}
+
+.mrf-advanced-toggle {
+  background: none;
+  border: none;
+  color: var(--accent-2);
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-align: left;
+  padding: 0;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 0.15s ease;
+}
+
+.mrf-advanced-toggle:hover {
+  text-decoration-color: var(--accent-2);
+}
+
+.mrf-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--panel-strong);
+  border-radius: 6px;
+}
+
+.mrf-run-button {
+  padding: 0.6rem;
+  background: var(--brand-gradient);
+  color: #06110c;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.1s ease;
+}
+
+.mrf-run-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.mrf-run-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.mrf-run-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mrf-section-divider {
+  border-top: 1px solid var(--border);
+  margin: 0.25rem 0;
+}
+
+/* Workflow diagram (About page) - styled like a schematic/architecture
+   diagram (dark canvas, thin-outlined nodes, light connector lines) so the
+   real pipeline shape reads as a system diagram at a glance. Category
+   colors are kept on the title text only (not the box chrome) so the
+   classical vs quantum branches still visually differ without breaking
+   the monochrome-node look. */
+.wf-diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 720px;
+  background: radial-gradient(900px 500px at 20% 0%, rgba(47, 111, 237, 0.1), transparent 60%), #10151f;
+  border: 1px solid #262c3a;
+  border-radius: 12px;
+  padding: 1.5rem 1.5rem 1.75rem;
+  box-shadow: 0 12px 32px rgba(4, 8, 20, 0.35);
+}
+
+.wf-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wf-arrow-down {
+  width: 1.5px;
+  height: 20px;
+  background: #3a4152;
+  position: relative;
+  margin: 2px 0;
+}
+
+.wf-arrow-down::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #3a4152;
+}
+
+.wf-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1.5px solid #3a4152;
+  border-radius: 8px;
+  padding: 0.75rem 0.95rem;
+  width: 100%;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.wf-box:hover {
+  border-color: #5b6478;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.wf-box strong {
+  font-size: 0.85rem;
+  color: #f1f5f9;
+}
+
+.wf-box span {
+  font-size: 0.78rem;
+  color: #8b93a7;
+  line-height: 1.45;
+}
+
+.wf-challenge {
+  background: var(--brand-gradient);
+  border-color: transparent;
+  border-radius: 999px;
+  align-items: center;
+  text-align: center;
+  padding: 0.7rem 1.3rem;
+}
+.wf-challenge strong {
+  color: #06110c;
+  font-size: 0.95rem;
+}
+.wf-challenge span {
+  color: rgba(6, 17, 12, 0.75);
+}
+
+.wf-input strong {
+  color: #60a5fa;
+}
+
+.wf-prep strong {
+  color: #4ade80;
+}
+
+.wf-roi strong {
+  color: #a78bfa;
+}
+
+.wf-classical strong {
+  color: #60a5fa;
+}
+
+.wf-quantum strong {
+  color: #c084fc;
+}
+
+.wf-merge strong {
+  color: #4ade80;
+}
+
+.wf-metrics strong {
+  color: #fb923c;
+}
+
+.wf-compare strong {
+  color: #f472b6;
+}
+
+.wf-scaling strong {
+  color: #f87171;
+}
+
+.wf-dossier strong {
+  color: #818cf8;
+}
+
+.wf-pattern strong {
+  color: #22d3ee;
+}
+
+.wf-diagram-compact {
+  max-width: 480px;
+  margin: 0.75rem 0 1.25rem;
+}
+
+.wf-branch-row {
+  display: flex;
+  gap: 1.5rem;
+  align-items: stretch;
+  position: relative;
+}
+
+.wf-branch-row::before {
+  /* the horizontal bar the single incoming arrow splits into */
+  content: "";
+  position: absolute;
+  top: -20px;
+  left: 25%;
+  right: 25%;
+  height: 1.5px;
+  background: #3a4152;
+}
+
+.wf-branch {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+}
+
+.wf-branch::before {
+  content: "";
+  position: absolute;
+  top: -20px;
+  left: 50%;
+  width: 2px;
+  height: 20px;
+  background: var(--border);
+}
+
+.wf-filler {
+  /* Lets a shorter branch (classical: 3 boxes) visually reach the same
+     merge point as a longer one (quantum: 5 boxes) without measuring
+     pixel heights in JS - flexbox stretches this to fill the gap. */
+  flex: 1;
+  width: 1.5px;
+  align-self: center;
+  background: #3a4152;
+  min-height: 20px;
+}
+
+.wf-converge {
+  position: relative;
+  height: 22px;
+}
+
+.wf-converge::before {
+  /* the horizontal bar the two branches merge into */
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 25%;
+  right: 25%;
+  height: 1.5px;
+  background: #3a4152;
+}
+
+.wf-converge::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1.5px;
+  height: 22px;
+  background: #3a4152;
+}
+
+.mrf-empty-state {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--muted);
+  background: var(--panel-strong);
+  border-radius: 6px;
+}
+
+.mrf-empty-state p:first-child {
+  color: var(--fg);
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+}
+
+.mrf-live-panel {
+  padding: 1.1rem 1.2rem;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mrf-live-panel p {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.mrf-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--status-good);
+  letter-spacing: 0.03em;
+  font-size: 0.78rem !important;
+}
+
+.mrf-tabs {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.mrf-image-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.mrf-grid-block {
+  margin: 0.5rem 0;
+}
+
+/* The chip preview's caption is long; without a fixed width it stretches
+   the block to full row width, pushing the classical/quantum grids to the
+   far right and wrapping the second one onto its own row. */
+.mrf-chip-block {
+  flex: 0 0 210px;
+  width: 210px;
+}
+
+.mrf-grid-title {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin: 0 0 0.4rem;
+}
+
+.mrf-grid {
+  display: grid;
+  gap: 2px;
+  width: 140px;
+  aspect-ratio: 1;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(22, 33, 58, 0.1);
+  transition: box-shadow 0.2s ease;
+}
+
+.mrf-grid:hover {
+  box-shadow: 0 4px 14px rgba(22, 33, 58, 0.16);
+}
+
+.mrf-cell {
+  background: var(--panel-strong);
+}
+
+.mrf-cell-on {
+  background: var(--accent-2);
+}
+
+.mrf-cell-nodata {
+  background: var(--muted);
+}
+
+.mrf-cell-shadow {
+  background: #1e1b4b;
+}
+
+.mrf-cell-edge-object {
+  background: var(--accent-2);
+}
+
+.mrf-cell-edge-shadow {
+  background: #1e1b4b;
+}
+
+.mrf-cell-edge-mixed {
+  background: #ea580c;
+}
+
+.mrf-grid-caption {
+  margin-top: 0.35rem !important;
+  font-size: 0.75rem !important;
+}
+
+.mrf-grid-legend {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem !important;
+}
+
+.mrf-cell-legend-swatch {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  vertical-align: middle;
+  margin-right: 0.15rem;
+}
+
+.mrf-chip-preview {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent), 0 4px 14px rgba(22, 33, 58, 0.18);
+}
+
+.mrf-chip-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.mrf-chip-preview::after {
+  /* faint scanline texture over the raw SAR magnitude - a radar-display
+     cue, not functional */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.06) 0px,
+    rgba(255, 255, 255, 0.06) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+}
+
+.mrf-roi-box {
+  position: absolute;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+}
+
+.mrf-metric-better {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.mrf-chart-block {
+  margin-top: 1rem;
+}
+
+.mrf-chart {
+  background: var(--panel-strong);
+  border-radius: 6px;
+}
+
+.mrf-energy-badges {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.mrf-energy-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.mrf-energy-badge-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.mrf-energy-badge strong {
+  color: var(--fg);
+  font-size: 0.85rem;
 }

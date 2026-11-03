@@ -60,129 +60,131 @@ function handleUnauthorized(status: number): void {
   }
 }
 
-export interface EventSummary {
-  event: string;
-  train: number;
-  valid: number;
-  test: number;
-  total: number;
-}
-
-export interface ChipList {
-  split: string;
-  event: string | null;
-  chip_ids: string[];
-}
-
-export interface StageRecord {
-  name: string;
-  status: string;
-  duration_s: number | null;
-  metrics: Record<string, unknown>;
-  error: string | null;
-}
-
-export interface RunRecord {
-  run_id: string;
-  run_name: string;
-  started_at: number;
-  ended_at: number | null;
-  stages: StageRecord[];
-  metrics: Record<string, unknown>;
-}
-
-export interface ModelInfo {
-  name: string;
-  size_bytes: number;
-  modified_at: number;
-}
-
-export interface InferResponse {
-  chip_id: string;
-  model: string;
+export interface MrfSolverResult {
+  labels: number[][];
+  energy: number;
   metrics: Record<string, number> | null;
-  n_valid_pixels: number;
-  n_nodata_pixels: number;
-  note: string | null;
-}
-
-// No chip_id: /api/quantum/kernel-svm pools its train/test pixels across
-// many chips itself (same sampling notebooks 05/06 use), rather than a
-// caller picking one - see QuantumResponse.n_train_chips/n_test_chips.
-export interface QuantumRequest {
-  backend: "ibm";
-  n_train: number;
-  n_test: number;
-  force_simulation: boolean;
-  // Only sent when force_simulation is false - connects with this account
-  // for this one run instead of requiring server-side env vars.
-  ibm_token?: string;
-  ibm_instance?: string;
-  ibm_channel?: string;
-}
-
-export interface ConnectRequest {
-  ibm_token?: string;
-  ibm_instance?: string;
-  ibm_channel?: string;
-}
-
-export interface ConnectResponse {
-  connected: boolean;
-  channel: string;
-  n_backends: number;
-  backend_name: string;
-}
-
-export interface QuantumResponse {
-  backend: string;
-  is_real_hardware: boolean;
-  backend_name: string;
-  n_train: number;
-  n_test: number;
-  n_train_chips: number;
-  n_test_chips: number;
-  n_fit_circuits: number;
-  n_predict_circuits: number;
-  metrics: Record<string, number>;
   duration_s: number;
 }
 
-export interface JobRecord {
-  job_id: string;
-  notebook: string;
-  status: "queued" | "running" | "success" | "failed";
-  triggered_by: string;
-  started_at: number;
-  ended_at: number | null;
-  returncode: number | null;
-  log_tail: string;
-  kind: "notebook" | "quantum";
-  extra: Record<string, unknown>;
+export interface MrfQuantumResult extends MrfSolverResult {
+  n_qubits: number;
+  reps: number;
+  backend: string;
+  circuit_width: number;
+  circuit_depth: number | null;
+  num_shots: number;
+  optimized_params: number[];
+  cost_history: number[]; // shot-weighted mean QUBO energy per COBYLA iteration - the energy-convergence trace
 }
 
-export interface ModelVersion {
-  model_name: string;
-  version: number;
-  created_at: number;
-  notebook: string;
-  registered_by: string;
-  metrics: Record<string, number>;
-  file: string;
-  size_bytes: number;
+// Real MSTAR SAR vehicle-target chips (utils/mrf/mstar_scenes.py) - see
+// MstarResponse.note for exactly what "real" does and doesn't mean here (no
+// per-pixel target/background mask exists in the public release, so
+// classical/quantum are compared on energy only, never a fabricated metric).
+export interface MstarChipInfo {
+  chip_id: string;
+  target_type: string;
+  target_serial: string;
+  depression_deg: number;
+  azimuth_deg: number;
+  height: number;
+  width: number;
+  bright_row: number; // centroid of the real target blob - default the ROI here, not the geometric center
+  bright_col: number;
+  no_object_row: number; // real, verified target-free window - THALES's "images without object" case
+  no_object_col: number;
+  low_snr_row: number; // real, verified low-contrast target-edge window - THALES's "low SNR" case
+  low_snr_col: number;
 }
 
-export interface RegistrySummary {
-  model_name: string;
-  current_version: number | null;
-  n_versions: number;
+export interface MstarRequest {
+  chip_id: string;
+  row0: number;
+  col0: number;
+  size: number;
+  smoothness?: number;
+  contrast_sigma?: number;
+  noise_sigma?: number; // synthetic Gaussian noise added on top of the real magnitude - robustness testing
+  run_quantum: boolean;
+  qaoa_reps?: number;
+  qaoa_max_iterations?: number;
+  qaoa_num_shots?: number;
+  qaoa_backend?: string;
 }
 
-export interface NewDataStatus {
-  has_new_data: boolean;
-  new_chip_ids: string[];
-  total_chips: number;
-  baseline_just_created: boolean;
+export interface MstarResponse {
+  chip_id: string;
+  target_type: string;
+  target_serial: string;
+  chip_height: number;
+  chip_width: number;
+  chip_preview_png: string; // base64 PNG of the FULL chip's real magnitude
+  row0: number;
+  col0: number;
+  size: number;
+  roi_intensity: number[][]; // the actual normalized magnitude the unary term was built from
+  classical: MrfSolverResult;
+  quantum: MrfQuantumResult | null;
+  note: string | null;
+}
+
+// Real per-iteration events from POST /api/mstar/stream - each "progress"
+// event corresponds to one genuine ExecutionSession.sample() round trip to
+// Classiq's platform (~4-5s), not a client-side simulated tick.
+export type MstarStreamEvent =
+  | { type: "classical_done"; energy: number; duration_s: number }
+  | { type: "progress"; iteration: number; max_iterations: number; mean_energy: number; best_energy: number }
+  | { type: "done"; result: MstarResponse }
+  | { type: "error"; detail: string };
+
+// 3-class (background/target/shadow) extension - THALES's own "beyond
+// binary" case. See apps/api/routers/mstar.py's /shadow endpoint and
+// utils/mrf/multilabel_energy.py for what's genuinely different here
+// (approximate alpha-expansion classical solver, not exact graph-cut;
+// one-hot QUBO tripling the qubit cost per pixel).
+export interface MstarShadowRequest {
+  chip_id: string;
+  row0: number;
+  col0: number;
+  size: number;
+  smoothness?: number;
+  contrast_sigma?: number;
+  run_quantum: boolean;
+  qaoa_reps?: number;
+  qaoa_max_iterations?: number;
+  qaoa_num_shots?: number;
+  qaoa_backend?: string;
+}
+
+export interface ShadowSolverResult {
+  labels: number[][]; // 0=background, 1=target, 2=shadow
+  energy: number;
+  duration_s: number;
+}
+
+export interface ShadowQuantumSolverResult extends ShadowSolverResult {
+  n_qubits: number;
+  backend: string;
+  circuit_width: number;
+  circuit_depth: number | null;
+  cost_history: number[];
+}
+
+export interface MstarShadowResponse {
+  chip_id: string;
+  target_type: string;
+  target_serial: string;
+  chip_height: number;
+  chip_width: number;
+  chip_preview_png: string;
+  row0: number;
+  col0: number;
+  size: number;
+  background_mu: number;
+  classical: ShadowSolverResult;
+  quantum: ShadowQuantumSolverResult | null;
+  note: string | null;
 }
 
 async function getJSON<T>(path: string): Promise<T> {
@@ -213,17 +215,94 @@ async function postJSON<T>(path: string, body?: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-/** <img src=...> can't send an Authorization header - fetch the image as an
- * authenticated blob instead and hand back an object URL. Caller is
- * responsible for revoking it (see useAuthedImage hook) when done. */
-export async function fetchAuthedImageUrl(path: string): Promise<string> {
-  const res = await fetch(`${API_BASE}${path}`, { headers: authHeaders() });
-  if (!res.ok) {
+/** Reads POST /api/mstar/stream's newline-delimited JSON response,
+ * invoking onEvent for each real event as it arrives (not buffered until
+ * the whole response completes) - the browser's fetch streaming body
+ * reader, no SSE/EventSource needed since this is a POST with a JSON
+ * body. */
+async function mstarStream(req: MstarRequest, onEvent: (e: MstarStreamEvent) => void): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/mstar/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok || !res.body) {
     handleUnauthorized(res.status);
-    throw new Error(`${res.status} ${res.statusText}`);
+    const body = await res.text();
+    throw new Error(`${res.status} ${res.statusText}: ${body}`);
   }
-  const blob = await res.blob();
-  return URL.createObjectURL(blob);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let newlineIndex: number;
+    while ((newlineIndex = buffer.indexOf("\n")) >= 0) {
+      const line = buffer.slice(0, newlineIndex).trim();
+      buffer = buffer.slice(newlineIndex + 1);
+      if (line) onEvent(JSON.parse(line) as MstarStreamEvent);
+    }
+  }
+  const tail = buffer.trim();
+  if (tail) onEvent(JSON.parse(tail) as MstarStreamEvent);
+}
+
+// Pattern detection (target-type recognition) - this project's disclosed
+// interpretation of THALES's undefined "Pattern detection" requirement.
+// Real correlation-filter classifier, real MSTAR train/test chips, real
+// accuracy (see apps/api/routers/mstar.py's /pattern* endpoints).
+export interface PatternClassInfo {
+  class_name: string;
+  n_train_samples: number;
+}
+
+export interface PatternEvaluationResponse {
+  accuracy: number;
+  n_test_samples: number;
+  confusion: Record<string, Record<string, number>>;
+  classes: PatternClassInfo[];
+  note: string;
+}
+
+export interface PatternResponse {
+  chip_id: string;
+  actual_class: string;
+  predicted_class: string;
+  correct: boolean;
+  scores: Record<string, number>;
+}
+
+// Real Accuracy/IoU/Dice - the one place they exist in this app, because
+// it's the one place real ground truth exists (THALES's own worked
+// example, quoted directly from their brief, plus small generated cases
+// with a known target region) - see apps/api/routers/mstar.py's
+// /synthetic-validation endpoint. Never computed against a real MSTAR chip.
+export interface SyntheticValidationRequest {
+  run_quantum?: boolean;
+  qaoa_reps?: number;
+  qaoa_max_iterations?: number;
+  qaoa_num_shots?: number;
+  qaoa_backend?: string;
+  only_case?: number;
+}
+
+export interface ValidationCaseResult {
+  name: string;
+  source: string;
+  size: number;
+  intensity: number[][];
+  true_labels: number[][];
+  classical: MrfSolverResult; // .metrics holds {accuracy, iou, dice}
+  quantum: MrfQuantumResult | null;
+}
+
+export interface SyntheticValidationResponse {
+  cases: ValidationCaseResult[];
+  note: string;
+  total_cases: number;
 }
 
 export const api = {
@@ -242,44 +321,14 @@ export const api = {
   // (apps/api/routers/auth.py's auth0_login), not an API call that returns JSON.
   auth0LoginUrl: () => `${API_BASE}/api/auth/auth0/login`,
 
-  events: () => getJSON<EventSummary[]>("/api/catalog/events"),
-  chips: (split: string, event?: string) =>
-    getJSON<ChipList>(`/api/catalog/chips?split=${split}${event ? `&event=${event}` : ""}`),
-  chipPreviewPath: (chipId: string) => `/api/catalog/chips/${chipId}/preview.png`,
-
-  runs: (limit = 20) => getJSON<RunRecord[]>(`/api/runs?limit=${limit}`),
-  models: () => getJSON<ModelInfo[]>("/api/models"),
-  architecture: () => getJSON<{ mermaid: string }>("/api/architecture"),
-
-  infer: (chipId: string, model: string) =>
-    postJSON<InferResponse>("/api/inference", { chip_id: chipId, model }),
-  inferencePreviewPath: (chipId: string, model: string) =>
-    `/api/inference/${chipId}/preview.png?model=${model}`,
-
-  quantumConnect: (req: ConnectRequest) => postJSON<ConnectResponse>("/api/quantum/connect", req),
-  quantumKernelSvm: (req: QuantumRequest) => postJSON<QuantumResponse>("/api/quantum/kernel-svm", req),
-
-  jobNotebooks: () => getJSON<string[]>("/api/jobs/notebooks"),
-  jobs: (limit = 30, mine = false) => getJSON<JobRecord[]>(`/api/jobs?limit=${limit}&mine=${mine}`),
-  jobDetail: (jobId: string) => getJSON<JobRecord>(`/api/jobs/${jobId}`),
-  runNotebookJob: (notebook: string) => postJSON<JobRecord>("/api/jobs", { notebook }),
-
-  registrySummary: () => getJSON<RegistrySummary[]>("/api/registry"),
-  registryVersions: (modelName: string) =>
-    getJSON<{ model_name: string; current_version: number | null; versions: ModelVersion[] }>(
-      `/api/registry/${modelName}/versions`,
-    ),
-  restoreVersion: (modelName: string, version: number) =>
-    postJSON<ModelVersion>(`/api/registry/${modelName}/restore`, { version }),
-
-  compareData: () => getJSON<Record<string, Record<string, number>>>("/api/compare/data"),
-  comparePlotPath: () => "/api/compare/plot.png",
-
-  graphMermaid: () => getJSON<{ mermaid: string; n_nodes: number; n_edges: number }>("/api/graph/mermaid"),
-
-  checkNewData: () => getJSON<NewDataStatus>("/api/pipeline/check-new-data"),
-  retrainIfNew: () =>
-    postJSON<NewDataStatus & { triggered: boolean; job_ids: string[] }>("/api/pipeline/retrain-if-new"),
+  mstarChips: () => getJSON<MstarChipInfo[]>("/api/mstar/chips"),
+  mstar: (req: MstarRequest) => postJSON<MstarResponse>("/api/mstar", req),
+  mstarStream,
+  mstarShadow: (req: MstarShadowRequest) => postJSON<MstarShadowResponse>("/api/mstar/shadow", req),
+  mstarPattern: (chip_id: string) => postJSON<PatternResponse>("/api/mstar/pattern", { chip_id }),
+  mstarPatternEvaluation: () => getJSON<PatternEvaluationResponse>("/api/mstar/pattern/evaluation"),
+  mstarSyntheticValidation: (req: SyntheticValidationRequest = {}) =>
+    postJSON<SyntheticValidationResponse>("/api/mstar/synthetic-validation", req),
 };
 
 export { API_BASE };

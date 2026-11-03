@@ -18,7 +18,7 @@ export default function Auth0CallbackPage({ onAuthed }: { onAuthed: () => void }
     const token = searchParams.get("token");
     const username = searchParams.get("username");
     if (!token || !username) {
-      setError("No session token in this link - the Auth0 login flow didn't complete as expected.");
+      setError("The Auth0 login didn't finish - this link came back without a session. Please try logging in again.");
       return;
     }
     setSession(token, username);
