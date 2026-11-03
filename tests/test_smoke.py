@@ -27,12 +27,8 @@ def test_api_app_imports_and_wires_routers():
     paths = _collect_paths(app.routes)
     assert "/api/health" in paths
     assert "/api/auth/login" in paths
-    assert "/api/catalog/events" in paths
-    assert "/api/inference" in paths
-    assert "/api/quantum/kernel-svm" in paths
-    assert "/api/jobs" in paths
-    assert "/api/registry/{model_name}/versions" in paths
-    assert "/api/graph/mermaid" in paths
+    assert "/api/mstar/chips" in paths
+    assert "/api/mstar" in paths
 
 
 def test_evaluate_metrics_are_correct_on_known_input():
@@ -69,24 +65,20 @@ def test_jobs_engine_lists_known_notebooks():
     from utils.jobs.engine import list_notebooks
 
     notebooks = list_notebooks()
-    assert "01_ingest" in notebooks
-    assert "09_patch_unet" in notebooks
+    assert "11_mrf_qaoa_classiq" in notebooks
+    assert "keyring_check" in notebooks
 
 
 def test_registry_handles_unknown_model_gracefully():
+    # utils.registry looks unused by the live MSTAR app at first glance,
+    # but utils.ai.classic.model_io (imported transitively via
+    # utils.mrf.energy.patch_energy_from_chip, kept real and working for
+    # utils.mrf.experiments.py's evidence generation - see that module's
+    # docstring) imports it at module level, so it must stay importable.
     from utils.registry import model_registry
 
     assert model_registry.list_versions("nonexistent_model_xyz") == []
     assert model_registry.get_current_version("nonexistent_model_xyz") is None
-
-
-def test_knowledge_graph_builds_without_error():
-    from utils.graph.knowledge_graph import build_graph, to_mermaid
-
-    g = build_graph()
-    assert g.number_of_nodes() > 0
-    mermaid = to_mermaid(g)
-    assert mermaid.startswith("graph LR")
 
 
 def test_unet_forward_pass_shape():

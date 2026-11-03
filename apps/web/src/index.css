@@ -1,27 +1,29 @@
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --panel-strong: #1f232c;
-  --fg: #e6e6e9;
-  --muted: #8a8f9c;
-  --border: #2a2e38;
-  --accent: #34d399;
+  /* Light theme, matching the SphoorthiQ single-page layout's reference
+     design (white panels on a soft sky-blue backdrop, navy header) -
+     the light-blue base is intentionally more visible than a neutral
+     gray for a calmer, easier-on-the-eyes feel. */
+  --bg: #e8f1fc;
+  --panel: #ffffff;
+  --panel-strong: #eaf2fb;
+  --fg: #16213a;
+  --muted: #64708a;
+  --border: #dde3ee;
+  --accent: #16a34a;
   /* SphoorthiQ brand blue - accent's gradient partner, used for the
      brand mark, gradient text/buttons, and focus rings */
-  --accent-2: #4f8cf0;
+  --accent-2: #2f6fed;
   --brand-gradient: linear-gradient(90deg, var(--accent-2), var(--accent));
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow: 0 8px 24px rgba(22, 33, 58, 0.08);
 
   /* Fixed status colors - reserved for actual state (never reused as a
-     categorical series color). Always paired with an icon + label in
-     StatusBadge, never color alone: on their own these two fail
-     colorblind-safe separation (classic red/green), same as any
-     good/critical pair - see components using StatusBadge.tsx. */
+     categorical series color), always paired with an icon + label, never
+     color alone. */
   --status-good: #0ca30c;
   --status-critical: #d03b3b;
 
   font: 15px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
-  color-scheme: dark;
+  color-scheme: light;
   color: var(--fg);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -33,14 +35,57 @@
 
 body {
   margin: 0;
+  /* Soft two-tone wash plus a faint technical dot-grid - evokes a
+     radar/sensor-display feel appropriate to a SAR app without being
+     loud (grid dots at 3% opacity, fixed so it doesn't scroll with the
+     page content). */
+  background:
+    radial-gradient(1100px 520px at 8% -10%, color-mix(in srgb, var(--accent-2) 8%, transparent), transparent 60%),
+    radial-gradient(900px 480px at 100% 18%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 55%),
+    radial-gradient(color-mix(in srgb, var(--accent-2) 6%, transparent) 1px, transparent 1px),
+    var(--bg);
+  background-size: auto, auto, 26px 26px, auto;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 a {
   color: inherit;
+  transition: color 0.15s ease, opacity 0.15s ease;
 }
 
 ::selection {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* Themed scrollbar so it doesn't look like a stock browser default against
+   the panel/brand palette (Firefox + WebKit) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+  border: 2px solid var(--bg);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }
 
 code {

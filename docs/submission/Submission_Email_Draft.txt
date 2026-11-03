@@ -1,0 +1,34 @@
+TO:       challenge@vernewellgroup.com
+SUBJECT:  Algorithm Challenge 2026
+ATTACH:   Algorithm_Challenge_2026_SphoorthiQ_Submission.pdf
+DEADLINE: 10 November 2026
+
+-----------------------------------------------------------------------
+
+Dear Algorithm Challenge 2026 Organising Team,
+
+Please find attached the final proposal of SphoorthiQ Private Limited for the Algorithm Challenge 2026.
+
+Proposed solution
+SphoorthiQ is a working application that segments real radar (SAR) images of vehicles. It formulates each image as a Markov Random Field, converts it exactly into a QUBO, and solves it two ways on the same objective: an exact classical graph cut and QAOA on Classiq. The two results are compared side by side in a web interface.
+
+Where to find each item in the attached document
+- Objectives: section 2
+- Proposed solution: section 3 (with a requirement-by-requirement status table against the THALES brief)
+- Methodology: section 5
+- Expected outcomes and results to date: section 6
+- Supporting documentation, interface and job execution details: section 7 and Appendix A
+- Bibliographic references: final section
+
+Please note that all quantum results to date were obtained on Classiq simulators, not physical quantum hardware. The document states its limitations openly, including where QAOA falls short of the classical optimum and where the brief's worked examples are only partly reproduced.
+
+Team members: Dr. Kalakond Parvath, Dr. Santoshi, Soumyadip
+Prepared by: Sangameshwar Swami
+
+Thank you for your time and consideration. We would be glad to provide any further detail the jury may need.
+
+Kind regards,
+
+Sangameshwar Swami
+SphoorthiQ Private Limited
+https://sphoorthiq.com/

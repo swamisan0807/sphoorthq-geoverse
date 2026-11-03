@@ -14,17 +14,17 @@ pyyaml
 rasterio
 
 # ============================
-# Deep learning (classical baseline: U-Net)
+# Deep learning (utils/ai/classic/unet.py + model_io.py - not the live app's
+# classical baseline, which is exact graph cut; kept for utils/mrf/experiments.py's
+# dormant evidence-generation path, see that module's docstring)
 # ============================
 torch
 
 # ============================
-# Cloud ingestion connectors (utils/ingestion)
+# S3-backed state (utils/core/cloud_state.py) - optional, used by utils/jobs
+# and utils/registry when STATE_S3_BUCKET is set
 # ============================
-boto3                       # S3
-azure-identity               # ADLS auth
-azure-storage-file-datalake  # ADLS Gen2
-google-cloud-storage         # GCS
+boto3
 
 # ============================
 # Notebook environment
@@ -45,15 +45,15 @@ pillow
 bcrypt           # user password hashing (utils/auth/store.py)
 pyjwt            # session tokens
 requests         # Auth0 code exchange + userinfo (utils/auth/auth0.py)
-networkx         # knowledge graph (events -> chips -> model versions -> metrics)
+networkx         # exact classical graph-cut solver (utils/mrf/energy.py's solve_graph_cut - s-t min-cut)
 
 # ============================
-# Quantum ML (required for notebooks 05/06 + utils/qml, apps/api/routers/quantum.py)
+# Classiq/Qmod QAOA (utils/qml/classiq_qaoa.py, apps/api/routers/mstar.py) -
+# requires `classiq.authenticate()` once per environment; see README.md
+# "Authenticate with Classiq" for the Windows keyring workaround.
 # ============================
-qiskit
-qiskit-aer
-qiskit-ibm-runtime
-qiskit-machine-learning
+classiq
+keyrings.alt  # Windows-only CredWrite workaround (README.md) - notebooks/11's Part 3 keyring cell needs this importable
 
 # ============================
 # Dev/CI only - not needed to run the app itself
