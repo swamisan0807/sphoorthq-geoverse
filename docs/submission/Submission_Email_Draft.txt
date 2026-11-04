@@ -18,6 +18,7 @@ Where to find each item in the attached document
 - Methodology: section 5
 - Expected outcomes and results to date: section 6
 - Supporting documentation, interface and job execution details: section 7 and Appendix A
+- Plain-language walkthrough of the method, guidance on reading the results, and a glossary: Appendix B
 - Bibliographic references: final section
 
 Please note that all quantum results to date were obtained on Classiq simulators, not physical quantum hardware. The document states its limitations openly, including where QAOA falls short of the classical optimum and where the brief's worked examples are only partly reproduced.

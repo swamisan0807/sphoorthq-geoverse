@@ -203,7 +203,7 @@ All `/api/mstar*` routes require a bearer token from `/api/auth/login` or `/sign
 ## Verification & testing
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -q     # real MSTAR chips, no mocks — 52 tests
+.venv/Scripts/python.exe -m pytest tests/ -q     # real MSTAR chips, no mocks — 53 tests
 ruff check .                                     # lint (E/F/I — real bugs, not style opinions)
 
 cd apps/web
@@ -220,6 +220,9 @@ Specific evidence worth knowing about (see the About page for the full story):
   three-class accuracy below the majority-class baseline), because a few speckled pixels give little evidence.
 - The QUBO reformulation is checked **exact** over all 65,536 states of a 4×4 patch
   (`utils/mrf/verification.py`, `tests/test_mrf_energy.py`) — max deviation 2.13×10⁻¹⁴ (float noise).
+- The brief names a MATLAB genetic algorithm as its baseline. MATLAB is not part of this project, so `scripts/ga_baseline.py` runs a
+  genetic algorithm implemented in Python (not MATLAB's `ga`) on the same energy and QAOA's evaluation budget. It reaches the optimum on
+  27 to 30 of 30 seeds on every scaling tile except the 25-qubit BMP2 tile, and beats QAOA's average energy at 25 qubits.
 - QAOA is live-tested at 9/16/25 qubits on two real chips (edge tiles, `scripts/scaling_sweep.py`): exact
   match at 9 and 16 qubits, a shortfall at 25 under the same optimizer budget. Random sampling with the
   same sample budget also finds the optimum at 9 qubits, so that match proves the pipeline, not an advantage.

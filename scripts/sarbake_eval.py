@@ -106,7 +106,7 @@ def edge_tile(mask: np.ndarray, size: int, search: int = 16) -> tuple[int, int]:
 
 
 def mean_of(rows: list[dict], key: str) -> float:
-    return round(float(np.mean([r[key] for r in rows])), 3)
+    return round(float(np.mean([r[key] for r in rows if r[key] is not None])), 3)
 
 
 def main() -> None:

@@ -176,7 +176,13 @@ function ShadowGrid({ labels, title }: { labels: number[][]; title: string }) {
   );
 }
 
-function MetricsTable({ classical, quantum }: { classical: Record<string, number> | null; quantum: Record<string, number> | null | undefined }) {
+type MetricValues = Record<string, number | null>;
+
+function formatMetric(v: number | null | undefined): string {
+  return v === null || v === undefined ? "n/a" : v.toFixed(4);
+}
+
+function MetricsTable({ classical, quantum }: { classical: MetricValues | null | undefined; quantum: MetricValues | null | undefined }) {
   const keys = Object.keys(classical ?? quantum ?? {});
   if (keys.length === 0) {
     return (
@@ -200,9 +206,15 @@ Synthetic Validation tab.
         {keys.map((k) => (
           <tr key={k}>
             <td>{k}</td>
-            <td>{classical ? classical[k].toFixed(4) : "-"}</td>
-            <td className={quantum && classical && quantum[k] >= classical[k] ? "mrf-metric-better" : undefined}>
-              {quantum ? quantum[k].toFixed(4) : "-"}
+            <td>{classical ? formatMetric(classical[k]) : "-"}</td>
+            <td
+              className={
+                quantum && classical && quantum[k] != null && classical[k] != null && quantum[k]! > classical[k]!
+                  ? "mrf-metric-better"
+                  : undefined
+              }
+            >
+              {quantum ? formatMetric(quantum[k]) : "-"}
             </td>
           </tr>
         ))}
@@ -255,7 +267,7 @@ function EnergyChart({
 
   return (
     <div className="mrf-chart-block">
-      <p className="mrf-grid-title">How the QAOA energy changed at each optimizer step</p>
+      <p className="mrf-grid-title">Average energy of the sampled bitstrings at each optimizer step (the best single result is shown below)</p>
       <svg width={w} height={h} className="mrf-chart">
         {yTicks.map(({ py, value }, i) => (
           <g key={i}>

@@ -40,6 +40,17 @@ def test_score_three_class_scores_each_class():
     assert scores["accuracy"] == pytest.approx(0.5)
 
 
+def test_class_absent_from_prediction_and_mask_has_no_iou():
+    all_target = np.ones((2, 2), dtype=int)
+    scores = sarbake.score_three_class(all_target, all_target)
+    assert scores["iou_background"] is None and scores["iou_shadow"] is None
+    assert scores["iou_target"] == 1.0 and scores["mean_iou"] == 1.0
+    # a missed class still counts: shadow present in the mask but never predicted
+    mask = np.array([[1, 1], [2, 2]])
+    scores = sarbake.score_three_class(np.ones((2, 2), dtype=int), mask)
+    assert scores["iou_shadow"] == 0.0 and scores["iou_background"] is None
+
+
 def test_missing_mask_returns_none():
     assert sarbake.load_mask("slicy_15deg_1") is None  # SLICY has no SARBake masks
     assert sarbake.load_mask("not-a-chip") is None

@@ -162,7 +162,7 @@ export interface ShadowSolverResult {
   labels: number[][]; // 0=background, 1=target, 2=shadow
   energy: number;
   duration_s: number;
-  metrics?: Record<string, number> | null; // scored against the SARBake mask when available
+  metrics?: Record<string, number | null> | null; // scored against the SARBake mask when available (null = class absent)
 }
 
 export interface ShadowQuantumSolverResult extends ShadowSolverResult {

@@ -149,21 +149,21 @@ according to the SARBake mask, so the solver has a real decision to make. The ra
 the best of about 9,700 uniformly random labelings (QAOA's sample budget), averaged over 30 seeds
 (`scripts/random_baseline.py`):
 
-| chip | size | qubits | classical energy | quantum energy | random sampling | classical / quantum IoU | QAOA duration |
-|---|---|---|---|---|---|---|---|
-| T72 #132 (test) | 3×3 | 9 | 6.5307 | 6.5307 | 6.5307 | 0.40 / 0.40 | 66.5s |
-| BMP2 #9563 (test) | 3×3 | 9 | 5.3805 | 5.3805 | 5.3805 | 0.75 / 0.75 | 62.7s |
-| T72 #132 (test) | 4×4 | 16 | 11.3321 | 11.3321 | 12.1226 | 0.44 / 0.44 | 67.6s |
-| BMP2 #9563 (test) | 4×4 | 16 | 7.4675 | 7.4675 | 8.7559 | 0.78 / 0.78 | 70.7s |
-| T72 #132 (test) | 5×5 | 25 | 13.8564 | 14.3462 | 20.1669 | 0.59 / 0.57 | 127.5s |
-| BMP2 #9563 (test) | 5×5 | 25 | 12.1758 | 13.2295 | 18.4777 | 0.71 / 0.67 | 124.2s |
+| chip | size | qubits | classical energy | quantum energy | random sampling | genetic algorithm | classical / quantum IoU | QAOA duration |
+|---|---|---|---|---|---|---|---|---|
+| T72 #132 (test) | 3×3 | 9 | 6.5307 | 6.5307 | 6.5307 | 6.5307 | 0.40 / 0.40 | 66.5s |
+| BMP2 #9563 (test) | 3×3 | 9 | 5.3805 | 5.3805 | 5.3805 | 5.3805 | 0.75 / 0.75 | 62.7s |
+| T72 #132 (test) | 4×4 | 16 | 11.3321 | 11.3321 | 12.1226 | 11.4294 | 0.44 / 0.44 | 67.6s |
+| BMP2 #9563 (test) | 4×4 | 16 | 7.4675 | 7.4675 | 8.7559 | 7.4675 | 0.78 / 0.78 | 70.7s |
+| T72 #132 (test) | 5×5 | 25 | 13.8564 | 14.3462 | 20.1669 | 13.9659 | 0.59 / 0.57 | 127.5s |
+| BMP2 #9563 (test) | 5×5 | 25 | 12.1758 | 13.2295 | 18.4777 | 12.3871 | 0.71 / 0.67 | 124.2s |
 
 QAOA matches the classical optimum at 9 and 16 qubits on both chips. At 25 qubits, with the same
 optimizer budget, it falls short on both (14.3462 against 13.8564, and 13.2295 against 12.1758), and its
 IoU against the mask is a little lower. Random sampling finds the optimum on every seed at 9 qubits, on 6
 and 3 of 30 seeds at 16 qubits, and on none at 25, and QAOA's energy is below the random average in all
-four of the 16- and 25-qubit rows. Each QAOA value is a single run and QAOA is random, so repeat runs can
-differ. The IoU figures are for these two chips only; averaged over 120 chips, edge tiles of this size score lower
+four of the 16- and 25-qubit rows. A genetic algorithm with the same budget (§11) does better than random sampling at 16 and 25 qubits and than QAOA at 25 qubits. Each QAOA
+value is a single run and QAOA is random, so repeat runs can differ. The IoU figures are for these two chips only; averaged over 120 chips, edge tiles of this size score lower
 ([§12c](#12c-real-mask-results-sarbake)). We do not claim a quantum advantage: the classical solver is exact and takes milliseconds.
 Classical graph cut has no qubit limit: on 8×8 edge patches (64 pixels, four times QAOA's ceiling) it got
 energy 34.1487 (T72 #132) and 27.4969 (BMP2 #9563) in about 3 ms and 2 ms, with IoU 0.71 and 0.78 against
@@ -183,8 +183,7 @@ is scored on — not a generic Hamiltonian expectation value.
 Exact MAP labeling via s-t min-cut graph cut (Greig, Porteous & Seheult 1989) — valid because the
 pairwise term is a ferromagnetic Potts penalty, always submodular. This is the exact method THALES's own
 document names ("the MAP can in fact be computed exactly ... using graph cut, at least when the prior
-P(x) is an Ising distribution") — stronger than a heuristic baseline (e.g. a genetic algorithm), and the
-reason the classical-vs-quantum energy comparison is meaningful in the first place.
+P(x) is an Ising distribution") — stronger than a heuristic baseline, and the reason the classical-vs-quantum energy comparison is meaningful in the first place. The brief also names a MATLAB genetic algorithm as its baseline. MATLAB is not part of this project, so `scripts/ga_baseline.py` runs a genetic algorithm implemented in Python (not MATLAB's `ga`) on the same tiles and energy, with QAOA's evaluation budget. It reaches the optimum on 27 to 30 of 30 seeds on every scaling tile except the 25-qubit BMP2 tile (18 of 30), and its average energy at 25 qubits (13.9659 and 12.3871) is below QAOA's (14.3462 and 13.2295).
 
 ## 12. Robustness
 
@@ -320,5 +319,5 @@ Live-streaming real per-iteration QAOA progress, not a simulated loading animati
 - Synthetic validation sweep: `scripts/synthetic_validation_run.py`
 - Real-mask evaluation: `scripts/sarbake_eval.py` (classical only, no Classiq session needed)
 - Random-sampling baseline: `scripts/random_baseline.py`
-- Full test suite: `pytest tests/ -q` (52 tests, real MSTAR chips, no mocks)
+- Full test suite: `pytest tests/ -q` (53 tests, real MSTAR chips, no mocks)
 - Live app: see [README.md](../README.md) for setup and run instructions

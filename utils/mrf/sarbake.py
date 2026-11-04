@@ -105,12 +105,20 @@ def score_binary(pred: np.ndarray, mask: np.ndarray) -> dict[str, float]:
     }
 
 
-def score_three_class(pred: np.ndarray, mask: np.ndarray) -> dict[str, float]:
-    ious = [_iou(pred == k, mask == k) for k in (BACKGROUND, TARGET, SHADOW)]
+def score_three_class(pred: np.ndarray, mask: np.ndarray) -> dict[str, float | None]:
+    """Accuracy and per-class IoU. A class that is absent from both the
+    prediction and the mask has no IoU (None), and the mean covers only the
+    classes that occur, so a tile without shadow is not credited with a perfect
+    shadow score."""
+    ious: list[float | None] = []
+    for k in (BACKGROUND, TARGET, SHADOW):
+        p, t = pred == k, mask == k
+        ious.append(_iou(p, t) if (p | t).any() else None)
+    present = [v for v in ious if v is not None]
     return {
         "accuracy": float(np.mean(pred == mask)),
         "iou_background": ious[0],
         "iou_target": ious[1],
         "iou_shadow": ious[2],
-        "mean_iou": float(np.mean(ious)),
+        "mean_iou": float(np.mean(present)),
     }

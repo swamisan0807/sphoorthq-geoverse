@@ -331,7 +331,7 @@ class ShadowSolverResult(BaseModel):
     labels: list[list[int]]  # 0=background, 1=target, 2=shadow
     energy: float
     duration_s: float
-    metrics: dict[str, float] | None = None  # scored against the SARBake mask when one is available
+    metrics: dict[str, float | None] | None = None  # scored against the SARBake mask when one is available
 
 
 class ShadowQuantumSolverResult(ShadowSolverResult):

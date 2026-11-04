@@ -15,14 +15,15 @@ const REAL_MASK_ROWS = [
 // Each tile sits on the vehicle's edge (half target by the SARBake mask), and
 // both results are scored against that mask. randomE is the lowest energy
 // found by random sampling with QAOA's sample budget, averaged over 30 seeds
-// (scripts/random_baseline.py). Each QAOA value is one run.
+// (scripts/random_baseline.py). gaE is the same for a Python genetic algorithm
+// (scripts/ga_baseline.py). Each QAOA value is one run.
 const SWEEP = [
-  { chip: "T72 #132 (test)", size: 3, qubits: 9, classicalE: 6.5307, quantumE: 6.5307, randomE: 6.5307, classicalIoU: 0.4, quantumIoU: 0.4, quantumDuration: 66.5 },
-  { chip: "BMP2 #9563 (test)", size: 3, qubits: 9, classicalE: 5.3805, quantumE: 5.3805, randomE: 5.3805, classicalIoU: 0.75, quantumIoU: 0.75, quantumDuration: 62.7 },
-  { chip: "T72 #132 (test)", size: 4, qubits: 16, classicalE: 11.3321, quantumE: 11.3321, randomE: 12.1226, classicalIoU: 0.44, quantumIoU: 0.44, quantumDuration: 67.6 },
-  { chip: "BMP2 #9563 (test)", size: 4, qubits: 16, classicalE: 7.4675, quantumE: 7.4675, randomE: 8.7559, classicalIoU: 0.78, quantumIoU: 0.78, quantumDuration: 70.7 },
-  { chip: "T72 #132 (test)", size: 5, qubits: 25, classicalE: 13.8564, quantumE: 14.3462, randomE: 20.1669, classicalIoU: 0.59, quantumIoU: 0.57, quantumDuration: 127.5 },
-  { chip: "BMP2 #9563 (test)", size: 5, qubits: 25, classicalE: 12.1758, quantumE: 13.2295, randomE: 18.4777, classicalIoU: 0.71, quantumIoU: 0.67, quantumDuration: 124.2 },
+  { chip: "T72 #132 (test)", size: 3, qubits: 9, classicalE: 6.5307, quantumE: 6.5307, randomE: 6.5307, gaE: 6.5307, classicalIoU: 0.4, quantumIoU: 0.4, quantumDuration: 66.5 },
+  { chip: "BMP2 #9563 (test)", size: 3, qubits: 9, classicalE: 5.3805, quantumE: 5.3805, randomE: 5.3805, gaE: 5.3805, classicalIoU: 0.75, quantumIoU: 0.75, quantumDuration: 62.7 },
+  { chip: "T72 #132 (test)", size: 4, qubits: 16, classicalE: 11.3321, quantumE: 11.3321, randomE: 12.1226, gaE: 11.4294, classicalIoU: 0.44, quantumIoU: 0.44, quantumDuration: 67.6 },
+  { chip: "BMP2 #9563 (test)", size: 4, qubits: 16, classicalE: 7.4675, quantumE: 7.4675, randomE: 8.7559, gaE: 7.4675, classicalIoU: 0.78, quantumIoU: 0.78, quantumDuration: 70.7 },
+  { chip: "T72 #132 (test)", size: 5, qubits: 25, classicalE: 13.8564, quantumE: 14.3462, randomE: 20.1669, gaE: 13.9659, classicalIoU: 0.59, quantumIoU: 0.57, quantumDuration: 127.5 },
+  { chip: "BMP2 #9563 (test)", size: 5, qubits: 25, classicalE: 12.1758, quantumE: 13.2295, randomE: 18.4777, gaE: 12.3871, classicalIoU: 0.71, quantumIoU: 0.67, quantumDuration: 124.2 },
 ];
 
 // Robustness sweep (scripts/robustness_sweep.py): the T72 #132 3x3 edge tile
@@ -285,8 +286,7 @@ export default function AboutPage() {
           Porteous &amp; Seheult 1989), at any image size and with no qubits involved.
         </p>
         <p>
-          The THALES brief names a MATLAB genetic algorithm as its baseline. We did not run it. For two labels, graph
-          cut is exact, so it is a stronger reference, and the quantum result is compared against that.
+          The THALES brief names a MATLAB genetic algorithm as its baseline. MATLAB is not part of this project, so we implemented a genetic algorithm in Python (it is not MATLAB's ga) and ran it on the same energy with the same evaluation budget as QAOA. The results are in Scaling. For two labels graph cut is exact, so it remains the reference that the quantum result is compared against.
         </p>
       </section>
 
@@ -382,6 +382,7 @@ export default function AboutPage() {
               <th>classical energy</th>
               <th>quantum energy</th>
               <th>random sampling, best (mean of 30)</th>
+              <th>genetic algorithm, best (mean of 30)</th>
               <th>classical / quantum IoU</th>
               <th>QAOA duration</th>
             </tr>
@@ -397,6 +398,7 @@ export default function AboutPage() {
                 <td>{r.classicalE}</td>
                 <td className={r.quantumE === r.classicalE ? "mrf-metric-better" : undefined}>{r.quantumE}</td>
                         <td>{r.randomE}</td>
+                <td>{r.gaE}</td>
                         <td>
                           {r.classicalIoU.toFixed(2)} / {r.quantumIoU.toFixed(2)}
                         </td>
@@ -408,7 +410,7 @@ export default function AboutPage() {
                 <p className="hint">
                   At 9 and 16 qubits QAOA reached the classical optimum on both chips. At 25 qubits, with the same
                   optimizer budget, it fell short on both (14.3462 against 13.8564, and 13.2295 against 12.1758), and its
-                  IoU against the mask is a little lower there. The random-sampling column provides context. Random
+                  IoU against the mask is a little lower there. The random-sampling and genetic-algorithm columns provide context: the genetic algorithm gets the same number of evaluations as QAOA has samples, and it reached the optimum on 27 to 30 of 30 seeds on every tile except the 25-qubit BMP2 tile (18 of 30). At 25 qubits its average energy (13.9659 and 12.3871) is below QAOA's (14.3462 and 13.2295). Random
                   sampling with the same number of samples finds the optimum on every seed at 9 qubits, so that match
                   shows the pipeline works and nothing more. At 16 qubits it found it on only 6 and 3 of 30 seeds, and at
                   25 qubits on none, and QAOA's energy was below the random average in all four of those rows. The IoU column is for these two chips only; averaged over 120 chips, edge tiles of this size score lower (see Real-mask results). Each QAOA value is a single run and QAOA is random, so repeat runs can differ. We do not claim a quantum advantage:
