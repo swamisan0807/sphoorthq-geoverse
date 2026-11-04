@@ -4,15 +4,25 @@ real sweep behind the About page's Scaling section and
 Algorithm_Design_Dossier.md's Feasibility & Scalability table. Not
 simulated: every quantum row is a real round trip to Classiq's platform.
 
-Usage: .venv/Scripts/python.exe scripts/scaling_sweep.py
+Each tile sits on the vehicle's edge (utils.mrf.sarbake.boundary_window), where
+the segmentation has to decide between target and background, and both solvers
+are scored against the SARBake mask as well as compared on energy.
+
+Usage: .venv/Scripts/python.exe scripts/scaling_sweep.py [APP_BASE=http://127.0.0.1:8000]
 (server must already be running on 127.0.0.1:8000, Classiq session must
 already be authenticated - see README.md)
 """
 
 import json
+import os
+import sys
 import urllib.request
 
-BASE = "http://127.0.0.1:8000"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils.mrf import sarbake  # noqa: E402
+
+BASE = os.environ.get("APP_BASE", "http://127.0.0.1:8000")
 CHIPS = ["t72_132_test_1", "bmp2_9563_test_1"]
 SIZES = [3, 4, 5]  # 9 / 16 / 25 qubits
 
@@ -35,15 +45,11 @@ def _get(path: str, token: str) -> list:
 def main() -> None:
     login = _post("/api/auth/login", {"username": "arun_authcheck", "password": "TestPass123!"})
     token = login["token"]
-    chips_by_id = {c["chip_id"]: c for c in _get("/api/mstar/chips", token)}
 
     rows = []
     for chip_id in CHIPS:
-        info = chips_by_id[chip_id]
         for size in SIZES:
-            half = size // 2
-            row0 = min(max(0, info["bright_row"] - half), info["height"] - size)
-            col0 = min(max(0, info["bright_col"] - half), info["width"] - size)
+            row0, col0 = sarbake.boundary_window(chip_id, size)
             result = _post(
                 "/api/mstar",
                 {
@@ -67,15 +73,23 @@ def main() -> None:
                 "classical_energy": classical_e,
                 "quantum_energy": quantum["energy"] if quantum else None,
                 "quantum_duration_s": quantum["duration_s"] if quantum else None,
+                "row0": row0,
+                "col0": col0,
+                "classical_iou": result["classical"]["metrics"]["iou"],
+                "quantum_iou": quantum["metrics"]["iou"] if quantum else None,
+                "classical_accuracy": result["classical"]["metrics"]["accuracy"],
+                "quantum_accuracy": quantum["metrics"]["accuracy"] if quantum else None,
             }
             rows.append(row)
             print(row, flush=True)
 
-    print("\n| chip | size | qubits | classical energy | quantum energy | QAOA duration |")
-    print("|---|---|---|---|---|---|")
+    print("\n| chip | size | qubits | tile | classical energy | quantum energy | classical IoU | quantum IoU | QAOA duration |")
+    print("|---|---|---|---|---|---|---|---|---|")
     for r in rows:
-        print(f"| {r['chip']} | {r['size']}x{r['size']} | {r['qubits']} | {r['classical_energy']} | "
-              f"{r['quantum_energy']} | {r['quantum_duration_s']}s |")
+        print(f"| {r['chip']} | {r['size']}x{r['size']} | {r['qubits']} | ({r['row0']},{r['col0']}) | {r['classical_energy']} | "
+              f"{r['quantum_energy']} | {r['classical_iou']:.2f} | {r['quantum_iou']:.2f} | {r['quantum_duration_s']}s |")
+    print()
+    print(json.dumps(rows))
 
 
 if __name__ == "__main__":

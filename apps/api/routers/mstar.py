@@ -2,17 +2,18 @@
 utils.mrf.energy pipeline and classical/quantum solvers as
 utils.mrf.solvers, this project's whole segmentation target.
 
-The MSTAR public release has no per-pixel target/background mask, so a
-chip's own normalized magnitude is used directly as unary/intensity
-evidence, and results are reported as energy only, honestly, with
-metrics=None - there is no ground truth anywhere in this pipeline to
-fabricate a score against."""
+The unary term comes from the chip's own brightness in decibels, measured
+against that chip's background (utils/mrf/mstar_scenes.py). MSTAR's public
+release has no per-pixel mask, so when the SARBake overlay for a chip is
+available (utils/mrf/sarbake.py) the results are also scored against it;
+otherwise they are reported as energy only, with metrics=None."""
 
 import json
 import queue
 import threading
 import time
 
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -24,11 +25,19 @@ from utils.mrf.mstar_scenes import CATALOG as MSTAR_CATALOG
 from utils.mrf.mstar_scenes import MSTAR_DIR
 from utils.mrf.mstar_scenes import chip_info as mstar_chip_info
 from utils.mrf.mstar_scenes import chip_preview_png_base64
-from utils.mrf.mstar_scenes import read_intensity_window as read_mstar_window
+from utils.mrf.mstar_scenes import (
+    THREE_CLASS_SHADOW_Z,
+    THREE_CLASS_TARGET_Z,
+    THREE_CLASS_Z_SCALE,
+    Z_SPAN,
+    target_probability,
+    z_to_intensity,
+)
+from utils.mrf.mstar_scenes import read_calibrated_window as read_mstar_window
+from utils.mrf import sarbake
 from utils.mrf.multilabel_energy import N_LABELS, build_multilabel_energy, energy_multilabel
 from utils.mrf.multilabel_energy import build_qubo_multilabel as build_shadow_qubo
 from utils.mrf.multilabel_energy import solve_alpha_expansion as solve_shadow_classical
-from utils.mrf.mstar_scenes import background_median
 from utils.mrf.solvers import (
     QuantumSolverResult,
     SolverResult,
@@ -85,7 +94,8 @@ class MstarResponse(BaseModel):
     row0: int
     col0: int
     size: int
-    roi_intensity: list[list[float]]  # the actual normalized magnitude the unary term was built from
+    roi_intensity: list[list[float]]  # the actual calibrated intensity the unary term was built from
+    reference_mask: list[list[int]] | None = None  # SARBake mask for this window (1 = target), when available
     classical: SolverResult
     quantum: QuantumSolverResult | None
     note: str | None = None
@@ -130,6 +140,13 @@ def _validate_and_load(req: MstarRequest):
 def _build_response(
     req: MstarRequest, info: dict, intensity, preview_png: str, classical_labels, classical_energy_val, classical_duration, quantum_result
 ) -> MstarResponse:
+    mask = sarbake.load_mask_window(req.chip_id, req.row0, req.col0, req.size)
+    scored = mask is not None
+    classical_metrics = sarbake.score_binary(classical_labels, mask) if scored else None
+    if scored and quantum_result is not None:
+        quantum_result = quantum_result.model_copy(
+            update={"metrics": sarbake.score_binary(np.array(quantum_result.labels), mask)}
+        )
     return MstarResponse(
         chip_id=req.chip_id,
         target_type=info["target_type"],
@@ -141,19 +158,26 @@ def _build_response(
         col0=req.col0,
         size=req.size,
         roi_intensity=[[round(float(v), 4) for v in row] for row in intensity.tolist()],
+        reference_mask=(mask == sarbake.TARGET).astype(int).tolist() if mask is not None else None,
         classical=SolverResult(
             labels=classical_labels.tolist(),
             energy=round(classical_energy_val, 4),
-            metrics=None,
+            metrics=classical_metrics,
             duration_s=round(classical_duration, 4),
         ),
         quantum=quantum_result,
         note=(
-            "This is a real MSTAR chip, and the public release doesn't include a per-pixel target mask for it, so "
-            "there's no accuracy score to give - only energy."
+            (
+                "Both results are scored against the SARBake mask for this chip. The mask is generated from the "
+                "vehicle's 3D CAD model rather than drawn by hand, so the scores are a good reference but not perfect "
+                "ground truth. Shadow pixels count as background in this two-class view. On small tiles the scores are "
+                "noisy and tend to be low, because a few speckled pixels provide little evidence."
+                if scored
+                else "No per-pixel mask is available for this chip, so only energy is reported."
+            )
             + (
-                f" We also added extra Gaussian noise (sigma={req.noise_sigma}) on top of the real signal as a "
-                "robustness test, so what both solvers saw is the noisy version, not the clean chip."
+                f" Gaussian noise (sigma={req.noise_sigma}) was added to the real signal as a robustness test, so both "
+                "solvers processed the noisy version rather than the clean chip."
                 if req.noise_sigma > 0
                 else ""
             )
@@ -186,7 +210,9 @@ def _record_job(req: MstarRequest, info: dict, username: str, job_started: float
 @router.post("", response_model=MstarResponse)
 def run_mstar(req: MstarRequest, username: str = Depends(get_current_user)):
     info, intensity, preview_png = _validate_and_load(req)
-    problem = build_patch_energy(intensity, intensity, smoothness=req.smoothness, contrast_sigma=req.contrast_sigma)
+    problem = build_patch_energy(
+        target_probability(intensity), intensity, smoothness=req.smoothness, contrast_sigma=req.contrast_sigma
+    )
     job_started = time.time()
 
     classical_labels, classical_energy_val, classical_duration = run_classical(problem)
@@ -207,7 +233,9 @@ def run_mstar_stream(req: MstarRequest, username: str = Depends(get_current_user
     shot-weighted mean energy, best energy seen so far) as it actually
     happens, not a fake "loading..." spinner over a 60-90s wait."""
     info, intensity, preview_png = _validate_and_load(req)
-    problem = build_patch_energy(intensity, intensity, smoothness=req.smoothness, contrast_sigma=req.contrast_sigma)
+    problem = build_patch_energy(
+        target_probability(intensity), intensity, smoothness=req.smoothness, contrast_sigma=req.contrast_sigma
+    )
 
     def event_stream():
         job_started = time.time()
@@ -303,6 +331,7 @@ class ShadowSolverResult(BaseModel):
     labels: list[list[int]]  # 0=background, 1=target, 2=shadow
     energy: float
     duration_s: float
+    metrics: dict[str, float] | None = None  # scored against the SARBake mask when one is available
 
 
 class ShadowQuantumSolverResult(ShadowSolverResult):
@@ -323,7 +352,8 @@ class MstarShadowResponse(BaseModel):
     row0: int
     col0: int
     size: int
-    background_mu: float  # the real per-chip median intensity used as the "background" unary reference
+    background_mu: float  # the background reference level, in calibrated intensity units
+    reference_mask: list[list[int]] | None = None  # SARBake mask for this window (0/1/2), when available
     classical: ShadowSolverResult
     quantum: ShadowQuantumSolverResult | None
     note: str | None = None
@@ -346,11 +376,19 @@ def run_mstar_shadow(req: MstarShadowRequest, username: str = Depends(get_curren
         info = mstar_chip_info(req.chip_id)
         intensity = read_mstar_window(req.chip_id, req.row0, req.col0, req.size)
         preview_png = chip_preview_png_base64(req.chip_id)
-        bg_mu = background_median(req.chip_id)
+        bg_mu = float(z_to_intensity(0.0))
     except (FileNotFoundError, ValueError) as e:
         raise HTTPException(404 if isinstance(e, FileNotFoundError) else 400, str(e))
 
-    problem = build_multilabel_energy(intensity, bg_mu, smoothness=req.smoothness, contrast_sigma=req.contrast_sigma)
+    problem = build_multilabel_energy(
+        intensity,
+        bg_mu,
+        smoothness=req.smoothness,
+        contrast_sigma=req.contrast_sigma,
+        target_mu=float(z_to_intensity(THREE_CLASS_TARGET_Z)),
+        shadow_mu=float(z_to_intensity(THREE_CLASS_SHADOW_Z)),
+        unary_scale=(Z_SPAN / THREE_CLASS_Z_SCALE) ** 2,
+    )
     job_started = time.time()
 
     start = time.time()
@@ -408,6 +446,12 @@ def run_mstar_shadow(req: MstarShadowRequest, username: str = Depends(get_curren
         },
     )
 
+    mask = sarbake.load_mask_window(req.chip_id, req.row0, req.col0, req.size)
+    classical_metrics = sarbake.score_three_class(classical_labels, mask) if mask is not None else None
+    if mask is not None and quantum_result is not None:
+        quantum_result = quantum_result.model_copy(
+            update={"metrics": sarbake.score_three_class(np.array(quantum_result.labels), mask)}
+        )
     return MstarShadowResponse(
         chip_id=req.chip_id,
         target_type=info["target_type"],
@@ -419,14 +463,19 @@ def run_mstar_shadow(req: MstarShadowRequest, username: str = Depends(get_curren
         col0=req.col0,
         size=req.size,
         background_mu=round(bg_mu, 4),
+        reference_mask=mask.astype(int).tolist() if mask is not None else None,
         classical=ShadowSolverResult(
-            labels=classical_labels.tolist(), energy=round(float(classical_energy), 4), duration_s=round(classical_duration, 4)
+            labels=classical_labels.tolist(),
+            energy=round(float(classical_energy), 4),
+            duration_s=round(classical_duration, 4),
+            metrics=classical_metrics,
         ),
         quantum=quantum_result,
         note=(
-            "This adds a third class, the vehicle's shadow, as THALES suggests. The classical answer comes from "
-            "alpha-expansion, which is approximate rather than exact like the two-class version. MSTAR has no "
-            "shadow ground truth either, so 'shadow' here is our own rule of thumb: a very dark, low-return area."
+            "This adds a third class, the vehicle's shadow, as suggested in the THALES brief. The classical result "
+            "comes from alpha-expansion, which is approximate rather than exact as in the two-class version. Shadow is "
+            "modelled as a dark, low-return area, and the result is scored against the SARBake mask when one is "
+            "available (a reference derived from the vehicle's CAD model, not a hand-drawn answer key)."
         ),
     )
 
@@ -562,9 +611,9 @@ def run_synthetic_validation(req: SyntheticValidationRequest, username: str = De
     return SyntheticValidationResponse(
         cases=results,
         note=(
-            "These accuracy, IoU and Dice scores are real, but they only come from test images where we know the "
-            "right answer: THALES's own worked example plus a few small cases we generated. We only ever score this "
-            "way, never against a real MSTAR chip, because a real chip has no per-pixel mask to check against."
+            "These scores are exact because every case has a known correct answer by construction: THALES's own "
+            "worked example plus a few small cases generated for this project. None of the cases is an MSTAR chip. "
+            "Real chips are scored against the SARBake masks instead, in the Metrics tab and on the About page."
         ),
         total_cases=len(all_cases),
     )

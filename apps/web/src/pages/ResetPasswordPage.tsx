@@ -76,7 +76,7 @@ export default function ResetPasswordPage({ onAuthed }: { onAuthed: () => void }
                 minLength={8}
               />
             </label>
-            <p className="hint">At least 8 characters. This link expires 15 minutes after you asked for it.</p>
+            <p className="hint">Use at least 8 characters. This link expires 15 minutes after it was requested.</p>
             {error && <p className="error">{error}</p>}
             <button type="submit" disabled={loading} className="submit">
               {loading ? "..." : "Reset password"}

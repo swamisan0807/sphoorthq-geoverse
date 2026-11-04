@@ -44,8 +44,8 @@ function ChipPreview({ result }: { result: ChipPreviewFields }) {
         <div className="mrf-roi-box" style={boxStyle} />
       </div>
       <p className="hint">
-        Real X-band magnitude, dB-scaled for display. Boxed region ({result.size}x{result.size} at row {result.row0},
-        col {result.col0}) is the ROI classical/quantum actually optimized.
+        Real X-band radar magnitude on a decibel scale. The box marks the {result.size}x{result.size} region (row{" "}
+        {result.row0}, column {result.col0}) processed by both solvers.
       </p>
     </div>
   );
@@ -150,7 +150,7 @@ function LabelGrid({ labels, title, itemLabel = "target" }: { labels: number[][]
         {nOn} of {flat.length} pixels labeled {itemLabel}
         {itemLabel === "target" &&
           nOn === 0 &&
-          " - that's fine if this tile is really just background clutter (check the boxed area on the chip)"}
+          " (expected if the tile contains only background clutter; see the boxed area on the chip)"}
       </p>
     </div>
   );
@@ -181,9 +181,9 @@ function MetricsTable({ classical, quantum }: { classical: Record<string, number
   if (keys.length === 0) {
     return (
       <p className="hint">
-        Real MSTAR chips don't come with a per-pixel target mask, so there's nothing to score IoU or precision
-        against here. Energy is the only fair way to compare the classical and quantum results, and it's shown
-        below. (Real accuracy numbers are on the Synthetic Validation tab.)
+        No reference mask is available for this chip, so IoU and precision cannot be computed. Energy is the only
+comparison between the two results and is shown below. Accuracy on test images with known answers is on the
+Synthetic Validation tab.
       </p>
     );
   }
@@ -318,8 +318,8 @@ export default function MrfPage() {
 
   // 3-class (background/target/shadow) extension - THALES's own "beyond
   // binary" case. Reuses the same chip/ROI selection above; a separate,
-  // smaller result since it's a genuinely different objective (Q=3, not
-  // Q=2 - energies aren't comparable between the two).
+  // smaller result since it is a genuinely different objective (Q=3, not
+  // Q=2 - energies are not comparable between the two).
   const [shadowRunQuantum, setShadowRunQuantum] = useState(false);
   const [shadowLoading, setShadowLoading] = useState(false);
   const [shadowError, setShadowError] = useState<string | null>(null);
@@ -337,7 +337,7 @@ export default function MrfPage() {
   const [evalResult, setEvalResult] = useState<PatternEvaluationResponse | null>(null);
 
   // Synthetic validation (real Accuracy/IoU/Dice) - see api/client.ts's
-  // comment: the only place these metrics exist in this app, because it's
+  // comment: the only place these metrics exist in this app, because it is
   // the only place real ground truth exists (never a real MSTAR chip).
   const [validationLoading, setValidationLoading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -362,7 +362,7 @@ export default function MrfPage() {
   // Center a roiSize x roiSize ROI on a given (row, col), clamped to stay
   // in-bounds for a smaller chip (SLICY is 54x54, vehicle chips are
   // 128x128). Takes the size explicitly rather than reading the `size`
-  // state, so a preset can't center against a stale value from before a
+  // state, so a preset cannot center against a stale value from before a
   // size change takes effect.
   function centerRoiOn(chip: MstarChipInfo, row: number, col: number, roiSize: number) {
     const half = Math.floor(roiSize / 2);
@@ -525,14 +525,14 @@ export default function MrfPage() {
   return (
     <div className="page">
       <div className="hero-intro">
-        <h1>Classical vs. quantum, on the same problem</h1>
+        <h1>Classical and quantum segmentation on a common objective</h1>
         <p>
-          Radar images are grainy, and a vehicle can be hard to spot against all that background noise. This tool
-          takes a real radar image and decides, pixel by pixel, which parts are the vehicle and which are just
-          background. We solve that one problem two ways: with a classical method that is guaranteed to find the
-          best possible answer, and with a quantum algorithm (QAOA) running on Classiq. Then we put the two results
-          side by side so you can see how they really compare, on real radar data rather than a toy example. Want
-          to know how we made sure the comparison is fair? The <a href="/about">About</a> page walks through it.
+          Synthetic aperture radar (SAR) images contain speckle noise, which makes vehicles difficult to separate from the
+background. This tool segments a real radar image by labelling each pixel as vehicle or background, using two
+solvers on the same objective: an exact classical method (graph cut), which is guaranteed to find the optimal
+labelling for two classes, and a quantum method (QAOA) executed on Classiq's simulator. The two results are
+presented side by side on real radar data. The <a href="/about">About</a> page describes how the comparison is
+kept fair.
         </p>
       </div>
 
@@ -542,9 +542,10 @@ export default function MrfPage() {
 
           <div className="mrf-dataset-controls">
             <p className="hint">
-              These are real radar images of vehicles (the MSTAR set, from Sandia National Lab). They don't come
-              with a pixel-by-pixel answer key, so here we compare the two solvers on "energy", a score for how good
-              an answer is (lower is better). Real accuracy scores are on the Synthetic Validation tab.
+              The chips are real radar images of vehicles from the public MSTAR dataset, released by the U.S. Air Force Research
+Laboratory. MSTAR provides no per-pixel masks, so each result is scored against the SARBake reference mask where one
+exists (T72, BMP2 and BTR70 chips) and is also compared on energy, a measure of solution quality (lower is better).
+Exact accuracy on test images with known answers is on the Synthetic Validation tab.
             </p>
             <label>
               Chip ({mstarChips.length} real chips, {Object.keys(chipGroups).length} vehicle types)
@@ -569,7 +570,7 @@ export default function MrfPage() {
               <input type="number" min={0} value={col0} onChange={(e) => setCol0(Number(e.target.value))} />
             </label>
             <div className="mrf-roi-presets">
-              <p className="hint">Or jump straight to a ready-made region on this chip:</p>
+              <p className="hint">Preset regions for this chip:</p>
               <div className="mrf-roi-preset-buttons">
                 <button type="button" onClick={() => jumpToPreset("bright")}>
                   Target
@@ -587,7 +588,7 @@ export default function MrfPage() {
           <div className="mrf-section-divider" />
 
           <label>
-            Tile size, in pixels per side ({qubits} qubit{qubits === 1 ? "" : "s"} if you run quantum)
+            Tile size, in pixels per side ({qubits} qubit{qubits === 1 ? "" : "s"} if run on the quantum solver)
             <input type="number" min={1} max={MAX_ROI_SIZE} value={size} onChange={(e) => setSize(Number(e.target.value))} />
           </label>
 
@@ -602,7 +603,7 @@ export default function MrfPage() {
           {showAdvanced && (
             <div className="mrf-advanced">
               <label>
-                Smoothness (how hard neighbors are pushed to agree)
+                Smoothness (strength of the neighbor agreement term)
                 <input type="number" step={0.1} value={smoothness} onChange={(e) => setSmoothness(Number(e.target.value))} />
               </label>
               <label>
@@ -610,7 +611,7 @@ export default function MrfPage() {
                 <input type="number" step={0.01} value={contrastSigma} onChange={(e) => setContrastSigma(Number(e.target.value))} />
               </label>
               <label>
-                Extra noise to add (for robustness testing, 0 = none)
+                Added noise (robustness testing; 0 = none)
                 <input type="number" step={0.05} min={0} value={noiseSigma} onChange={(e) => setNoiseSigma(Number(e.target.value))} />
               </label>
               <label>
@@ -618,7 +619,7 @@ export default function MrfPage() {
                 <input type="number" min={1} value={qaoaReps} onChange={(e) => setQaoaReps(Number(e.target.value))} />
               </label>
               <label>
-                Most optimizer steps to take
+                Maximum optimizer steps
                 <input type="number" min={1} value={qaoaMaxIterations} onChange={(e) => setQaoaMaxIterations(Number(e.target.value))} />
               </label>
               <label>
@@ -630,8 +631,8 @@ export default function MrfPage() {
 
           {quantumTooBig && (
             <p className="error">
-              A {size}x{size} tile needs {qubits} qubits, but QAOA tops out at {MAX_QAOA_SIZE * MAX_QAOA_SIZE}. Make
-              the tile smaller, or untick "Also run the quantum solver".
+              A {size}x{size} tile requires {qubits} qubits, which exceeds the {MAX_QAOA_SIZE * MAX_QAOA_SIZE}-qubit limit for
+QAOA. Reduce the tile size or clear the quantum option.
             </p>
           )}
 
@@ -660,7 +661,7 @@ export default function MrfPage() {
                   <p>
                     {liveIteration ? (
                       <>
-                        QAOA step {liveIteration.iteration} of {liveIteration.maxIterations} on Classiq - best energy so
+                        QAOA step {liveIteration.iteration} of {liveIteration.maxIterations} on Classiq. Best energy so
                         far: {liveIteration.bestEnergy}
                       </>
                     ) : liveClassical ? (
@@ -715,10 +716,10 @@ export default function MrfPage() {
 
               {!result && !["validation", "shadow", "pattern"].includes(tab) && (
                 <div className="mrf-empty-state">
-                  <p>Pick a real MSTAR chip and a region on the left, then click Run pipeline.</p>
+                  <p>Select a chip and a region on the left, then choose Run pipeline.</p>
                   <p className="hint">
-                    Once it finishes, the classical and quantum results, the energy comparison, and the QAOA
-                    convergence chart will show up here.
+                    When the run completes, the classical and quantum results, the energy comparison, the scores against the
+reference mask and the QAOA convergence chart appear here.
                   </p>
                 </div>
               )}
@@ -737,15 +738,18 @@ export default function MrfPage() {
                     ) : (
                       <div className="mrf-grid-block">
                         <p className="mrf-grid-title">Quantum</p>
-                        <p className="hint">The quantum solver was switched off for this run.</p>
+                        <p className="hint">The quantum solver was not run.</p>
                       </div>
+                    )}
+                    {result.reference_mask && (
+                      <LabelGrid labels={result.reference_mask} title="Reference (SARBake mask)" />
                     )}
                   </div>
 
                   <p className="hint mrf-grid-legend" style={{ marginTop: "1rem" }}>
-                    Edge detection: a pixel counts as an edge if any of its neighbors has a different label (that's
-                    THALES's own definition). We work it out from the labels above, so it needs no extra
-                    optimization.
+                    Edge detection: a pixel is marked as an edge if any of its neighbors has a different label, as defined in the
+THALES brief. The map is derived from the labels above and requires no further optimization. It marks both sides of
+each boundary, whereas the brief's printed example marks only the object side.
                   </p>
                   <div className="mrf-image-row">
                     <LabelGrid
@@ -759,8 +763,7 @@ export default function MrfPage() {
                   </div>
 
                   <p className="hint mrf-grid-legend" style={{ marginTop: "1rem" }}>
-                    Single-pixel edges: the same idea, but each boundary gets marked with one pixel instead of two
-                    (a refinement THALES suggests).
+                    Single-pixel edges: each boundary is marked with one pixel instead of two, a refinement suggested in the brief.
                   </p>
                   <div className="mrf-image-row">
                     <LabelGrid
@@ -782,14 +785,14 @@ export default function MrfPage() {
               {tab === "shadow" && (
                 <div>
                   <p className="hint" style={{ fontWeight: 600, color: "var(--fg)" }}>
-                    Adding a third class: the vehicle's shadow
+                    Three-class segmentation: adding the vehicle's shadow
                   </p>
                   <p className="hint">
-                    THALES suggests going one step past "vehicle or background" by also marking the vehicle's shadow.
-                    This uses the chip and region you picked on the left. With three classes, the classical method
-                    gives a very good answer but can no longer promise the best possible one, the way it can with two
-                    classes (the About page explains why). And since MSTAR has no answer key for shadows either, we
-                    simply treat very dark, low-return areas as shadow.
+                    The THALES brief suggests extending the segmentation beyond two classes by also labelling the vehicle's shadow.
+This runs on the chip and region selected on the left. With three classes the classical method (alpha-expansion)
+returns a good but not provably optimal result, unlike the exact two-class method (see the About page). Shadow is
+modelled as a dark, low-return area, and the result is scored against the SARBake mask where one is available. The
+brief's own printed example uses a mid-level shadow, so the output will not match that example exactly.
                   </p>
                   <label className="mrf-checkbox-row">
                     <input
@@ -797,20 +800,25 @@ export default function MrfPage() {
                       checked={shadowRunQuantum}
                       onChange={(e) => setShadowRunQuantum(e.target.checked)}
                     />
-                    Also run the quantum solver (QAOA on Classiq). It only works up to a {MAX_SHADOW_QAOA_SIZE}x
-                    {MAX_SHADOW_QAOA_SIZE} tile here, because each pixel needs 3 qubits and the limit is 25.
+                    Also run the quantum solver (QAOA on Classiq). With three classes each pixel requires 3 qubits, so this option is
+limited to tiles of {MAX_SHADOW_QAOA_SIZE}x{MAX_SHADOW_QAOA_SIZE} or smaller (25-qubit limit).
                   </label>
+                  <p className="hint">
+                    The selected tile is {size}x{size} and would require {size * size * 3} qubits.{" "}
+                    {size > MAX_SHADOW_QAOA_SIZE
+                      ? "This exceeds the limit for the quantum solver; leave the option cleared to obtain the classical result only."
+                      : "This is within the limit for the quantum solver."}
+                  </p>
                   {shadowRunQuantum && size > MAX_SHADOW_QAOA_SIZE && (
                     <p className="error">
-                      Your current tile is {size}x{size}, which needs {size * size * 3} qubits. Shrink it to{" "}
-                      {MAX_SHADOW_QAOA_SIZE}x{MAX_SHADOW_QAOA_SIZE} or smaller, or untick the quantum option.{" "}
+                      Reduce the tile to {MAX_SHADOW_QAOA_SIZE}x{MAX_SHADOW_QAOA_SIZE} or smaller, or clear the quantum option.{" "}
                       <button
                         type="button"
                         className="mrf-advanced-toggle"
                         style={{ color: "inherit", textDecorationColor: "currentcolor" }}
                         onClick={() => setSize(MAX_SHADOW_QAOA_SIZE)}
                       >
-                        Shrink tile to {MAX_SHADOW_QAOA_SIZE}x{MAX_SHADOW_QAOA_SIZE} now
+                        Set tile to {MAX_SHADOW_QAOA_SIZE}x{MAX_SHADOW_QAOA_SIZE}
                       </button>
                     </p>
                   )}
@@ -823,8 +831,7 @@ export default function MrfPage() {
                   </button>
                   {shadowLoading && shadowRunQuantum && (
                     <p className="hint">
-                      The quantum part takes a minute or more because it really runs on Classiq's platform. It's
-                      working, not stuck.
+                      The quantum step typically takes a minute or longer because it executes on Classiq's platform.
                     </p>
                   )}
                   {shadowError && <p className="error">{shadowError}</p>}
@@ -849,16 +856,29 @@ export default function MrfPage() {
                         ) : (
                           <div className="mrf-grid-block">
                             <p className="mrf-grid-title">Quantum</p>
-                            <p className="hint">The quantum solver was switched off for this run.</p>
+                            <p className="hint">The quantum solver was not run.</p>
                           </div>
                         )}
+                        {shadowResult.reference_mask && (
+                          <ShadowGrid labels={shadowResult.reference_mask} title="Reference (SARBake mask)" />
+                        )}
                       </div>
-                      <p className="hint">
-                        Background reference brightness (this chip's real median): {shadowResult.background_mu}
-                      </p>
+                      {shadowResult.classical.metrics && (
+                        <>
+                          <p className="hint">
+                            Scored against the SARBake mask for this chip. The mask is derived from the vehicle's CAD model, so it is a good
+reference but not hand-drawn ground truth. Scores on small tiles are low, because a few speckled pixels provide little
+evidence.
+                          </p>
+                          <MetricsTable
+                            classical={shadowResult.classical.metrics}
+                            quantum={shadowResult.quantum?.metrics}
+                          />
+                        </>
+                      )}
 
                       <p className="hint mrf-grid-legend" style={{ marginTop: "1rem" }}>
-                        Edges, told apart by type (THALES suggests telling object edges from shadow edges):
+                        Edges by type, as suggested in the brief (object edges versus shadow edges):
                         <span className="mrf-cell mrf-cell-edge-object mrf-cell-legend-swatch" /> object edge&nbsp;&nbsp;
                         <span className="mrf-cell mrf-cell-edge-shadow mrf-cell-legend-swatch" /> shadow edge&nbsp;&nbsp;
                         <span className="mrf-cell mrf-cell-edge-mixed mrf-cell-legend-swatch" /> object/shadow edge
@@ -877,21 +897,20 @@ export default function MrfPage() {
               {tab === "pattern" && (
                 <div>
                   <p className="hint" style={{ fontWeight: 600, color: "var(--fg)" }}>
-                    Pattern detection: which vehicle is this?
+                    Pattern detection: vehicle type recognition
                   </p>
                   <p className="hint">
-                    THALES mentions "pattern detection" without saying what it means, so we picked an interpretation
-                    and we're upfront about it: work out which real vehicle (BMP2, BTR70 or T72) the chip shows. We do
-                    that by matching it against average templates built from the real MSTAR training chips. This looks
-                    at the whole chip, not just the tile you picked on the left. Unlike segmentation, real answers
-                    exist here (each chip's own header says what it is), so the results are checkable.
+                    The THALES brief names pattern detection without defining it. We interpret it as recognizing which vehicle (BMP2,
+BTR70 or T72) a chip shows, by correlating the chip against average templates built from the MSTAR training chips.
+The method uses the whole chip, not only the selected tile. Unlike segmentation, the correct answer is known, because
+each chip's header states the vehicle type, so the result can be verified.
                   </p>
                   <div className="mrf-checkbox-row" style={{ gap: "0.6rem" }}>
                     <button className="mrf-run-button" onClick={runPattern} disabled={patternLoading || !mstarChipId}>
                       {patternLoading ? "Running..." : "Classify this chip"}
                     </button>
                     <button type="button" className="mrf-advanced-toggle" onClick={runEvaluation} disabled={evalLoading}>
-                      {evalLoading ? "Checking every test chip (about 30s)..." : "Show real accuracy across all test chips"}
+                      {evalLoading ? "Checking every test chip (about 30s)..." : "Show accuracy across all test chips"}
                     </button>
                   </div>
                   {patternError && <p className="error">{patternError}</p>}
@@ -954,14 +973,13 @@ export default function MrfPage() {
               {tab === "validation" && (
                 <div>
                   <p className="hint" style={{ fontWeight: 600, color: "var(--fg)" }}>
-                    Synthetic validation: real accuracy scores
+                    Synthetic validation: exact accuracy scores
                   </p>
                   <p className="hint">
-                    The real MSTAR chips don't come with a per-pixel answer key, so we can't honestly give them an
-                    accuracy, IoU or Dice score - anywhere in this app. Here's where we can: on small test images
-                    where we already know the right answer. One is THALES's own worked example, copied straight from
-                    their brief. The others are a few little images we made ourselves, with a target region we
-                    placed on purpose. None of these are real MSTAR chips, and we never mix the two.
+                    These cases are not MSTAR chips. Each has a known correct answer by construction, so accuracy, IoU and Dice are
+exact. One case is THALES's own worked example, reproduced from the brief; the others are small images generated for
+this project with a deliberately placed target region. Scores for real chips, against the SARBake masks, are shown in
+the Metrics tab and on the About page.
                   </p>
                   <label className="mrf-checkbox-row">
                     <input
@@ -969,10 +987,10 @@ export default function MrfPage() {
                       checked={validationRunQuantum}
                       onChange={(e) => setValidationRunQuantum(e.target.checked)}
                     />
-                    Also run the quantum solver on each case (slower - about 60 to 95 seconds each)
+                    Also run the quantum solver on each case (slower; about 60 to 95 seconds each)
                   </label>
                   <button className="mrf-run-button" onClick={runSyntheticValidation} disabled={validationLoading}>
-                    {validationLoading ? "Running - this can take a few minutes..." : "Run synthetic validation"}
+                    {validationLoading ? "Running (this can take a few minutes)" : "Run synthetic validation"}
                   </button>
                   {validationError && <p className="error">{validationError}</p>}
                   {validationResult && (
@@ -981,7 +999,7 @@ export default function MrfPage() {
                       {validationResult.cases.map((c) => (
                         <div key={c.name} style={{ marginTop: "0.75rem" }}>
                           <p className="mrf-grid-title">
-                            {c.name} ({c.size}x{c.size}) - <span className="hint">{c.source}</span>
+                            {c.name.includes(`${c.size}x${c.size}`) ? c.name : `${c.name} (${c.size}x${c.size})`} - <span className="hint">{c.source}</span>
                           </p>
                           <table>
                             <thead>

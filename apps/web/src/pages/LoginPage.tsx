@@ -110,8 +110,8 @@ export default function LoginPage({ onAuthed }: { onAuthed: () => void }) {
                 />
               </label>
             )}
-            {mode === "signup" && <p className="hint">At least 8 characters. Pick any username to create an account - no invite needed.</p>}
-            {mode === "forgot" && <p className="hint">Enter the username (or email) you signed up with and we'll send you a reset link.</p>}
+            {mode === "signup" && <p className="hint">Use at least 8 characters. Choose a username to create an account; no invitation is required.</p>}
+            {mode === "forgot" && <p className="hint">Enter the username or email address used at sign-up, and a password reset link will be sent.</p>}
             {mode === "login" && (
               <button type="button" className="link-button" onClick={() => switchMode("forgot")}>
                 Forgot password?

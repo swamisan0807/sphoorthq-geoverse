@@ -1,41 +1,35 @@
 # Algorithm Design Dossier — SAR Vehicle-Target Segmentation (MRF → QUBO → QAOA)
 
-This is SphoorthiQ's submission to THALES' SAR (Synthetic Aperture Radar) Image Segmentation use-case.
-We've held ourselves to one rule throughout: every number in this document comes from a real run against
-real MSTAR SAR data, performed by the code in this repository. Nothing here is a projection, a synthetic
-example, or a placeholder — and where a number genuinely can't be produced honestly (see
-[Assumptions](#assumptions)), we say so plainly instead of estimating it.
+This is SphoorthiQ's submission to the THALES SAR (Synthetic Aperture Radar) Image Segmentation use-case.
+Every figure in this document comes from runs of the code in this repository on real MSTAR SAR data, with one
+labelled exception: the synthetic validation cases in [§12b](#12b-synthetic-validation--real-accuracy--iou--dice),
+which have known answers by construction. Real-chip scores use the SARBake reference masks, which are derived from CAD models (see [§12c](#12c-real-mask-results-sarbake)
+and [Assumptions](#5-assumptions)). Where a figure cannot be produced with confidence, this is stated rather than estimated.
 
-## What this project actually does
+## What this project does
 
-In plain terms: given a real radar image of a vehicle sitting in noisy background clutter, we want to
-color in which pixels are the vehicle and which are just noise. We solve that same exact problem two
-different ways and put them side by side:
+Given a real radar image of a vehicle in noisy background clutter, the task is to label which pixels belong to the
+vehicle and which belong to the background. The same problem is solved in two ways and the results are compared:
 
-- **Classically**, with an algorithm (graph cut) that's mathematically guaranteed to find the best
-  possible answer, every time, no matter how big the image is.
-- **With a quantum algorithm**, QAOA, run through Classiq's platform on their simulated quantum backend -
-  it searches for a good answer rather than guaranteeing the best one. (No real quantum hardware is wired
-  up yet - see §15 - so "quantum" here means a real quantum circuit, genuinely executed, just not on
-  physical qubits today.)
+- **Classically**, with graph cut, an algorithm that is guaranteed to find the optimal labelling for two classes at any
+  image size.
+- **With a quantum algorithm**, QAOA, executed through Classiq's platform on its simulator backend. QAOA searches for a good
+  labelling rather than guaranteeing the best one. No physical quantum hardware is connected (see §15), so "quantum" here
+  means a real quantum circuit executed on a simulator.
 
-The interesting part isn't picking a winner - it's the honest comparison. At small scale (9 qubits),
-quantum finds the exact same answer as the classical method. As the problem gets bigger (16, then 25
-qubits), quantum starts to fall behind, because today's quantum hardware/simulators can only handle so
-many qubits before the search gets harder than the optimizer budget can handle. We show that gap plainly
-rather than hiding it, because that gap *is* the real, current state of quantum optimization - not a flaw
-in our implementation.
+The purpose is not to select a winner but to compare the two methods on one objective. At small scale (9 and 16 qubits)
+QAOA finds the same labelling as the classical method on the tiles tested. At 25 qubits it falls behind, because current
+simulators can handle only a limited number of qubits before the search becomes harder than the optimizer budget allows.
+This gap is reported as measured, because it reflects the present state of quantum optimization rather than a defect of
+the implementation.
 
-Beyond that core comparison, we also built the extra pieces THALES's brief gestures at without fully
-specifying: telling target pixels from shadow pixels (a third category, not just vehicle-or-not), marking
-edges between regions, and recognizing which specific vehicle type a chip shows. Every one of those is
-real, working code you can run in the app - not a slide describing what we'd do given more time.
+The additional topics mentioned in the THALES brief are also implemented and can be run in the application: a third class
+(the vehicle's shadow), edge detection between regions, and recognition of the vehicle type shown in a chip.
 
-**Where to look for what**: §§1-11 below lay out the math and the classical/quantum comparison in detail
-(§7b specifically walks through *how* the classical and quantum results connect - the same objective,
-scored the same way, file by file); §12 tests it under noise; §12b is the one place we can report real
-accuracy numbers (because it's the one place real ground truth exists); §13 covers the shadow/pattern-
-detection extensions; §15-16 are the honest limits and what's next.
+**Where to find what.** Sections 1-11 set out the formulation and the classical and quantum comparison (§7b explains how
+the two results are connected: the same objective, scored the same way). §12 tests the comparison under noise. §12b reports
+exact accuracy on test cases with known answers. §12c scores real chips against the SARBake masks. §13 covers the shadow
+and pattern-detection extensions. §15 and §16 describe the limitations and next steps.
 
 ## 1. Industrial problem framing
 
@@ -77,12 +71,12 @@ One label per pixel. Q=2 (background/target): one binary variable, one qubit, pe
 
 ## 5. Assumptions
 
-- **No per-pixel ground truth exists in MSTAR's public release.** This is the load-bearing assumption
-  of the entire project: energy is treated as the only honest objective-level comparison between
-  classical and quantum. Accuracy/IoU/Dice are not computed, estimated, or approximated anywhere in this
-  submission, because there is nothing real to compute them against.
-- The chip's own real, log-normalized magnitude is assumed sufficient unary evidence with no trained
-  classifier behind it — the same assumption THALES's own worked example makes ("We consider here only
+- **MSTAR's public release has no per-pixel ground truth.** Real chips are scored against the SARBake
+  overlay ([§12c](#12c-real-mask-results-sarbake)), whose masks come from 3D CAD models of the vehicles. They
+  are a good reference, not hand-drawn truth. For chips without a mask (SLICY), and whenever the masks are
+  missing, energy is the only comparison between classical and quantum.
+- The chip's own brightness in decibels, measured against its background, is assumed sufficient unary
+  evidence with no trained classifier behind it — the same assumption THALES's own worked example makes ("We consider here only
   the intensity to label the pixels").
 - The pairwise term assumes same-label neighbors are more likely than not (a standard Potts-style vision
   prior), not something fit to MSTAR-specific statistics.
@@ -141,31 +135,39 @@ identity is what every energy comparison in this document (§9, §12, §12b) act
 
 ## 8. Quantum suitability
 
-Proven correct at small scale: QAOA matches the exact classical optimum at 9 qubits, on two real chips,
-including across the full noise sweep in [§12](#12-robustness) (not just the clean case). Qubit-budget-
-and optimizer-limited today at 16-25 qubits — see [§9](#9-feasibility--scalability) for the real
-shortfall, not a rounded-up claim.
+Correct at small scale: QAOA matches the exact classical optimum at 9 and 16 qubits on two real chips,
+including across the full noise sweep in [§12](#12-robustness) at 9 qubits. At 9 qubits random sampling
+finds the optimum too, so that match shows the pipeline is correct and nothing more. Qubit-budget- and
+optimizer-limited at 25 qubits - see [§9](#9-feasibility--scalability) for the shortfall.
 
 ## 9. Feasibility & scalability
 
 Two real MSTAR test chips (T72 #132, BMP2 #9563), at the three qubit tiers Classiq's own simulators
 support today (no general-purpose simulator on this account exceeded ~28-35 qubits, so a naive 6×6=36
-tier was never realistic):
+tier was never realistic). Each tile sits on the vehicle's edge, where about half of it is target
+according to the SARBake mask, so the solver has a real decision to make. The random-sampling column is
+the best of about 9,700 uniformly random labelings (QAOA's sample budget), averaged over 30 seeds
+(`scripts/random_baseline.py`):
 
-| chip | size | qubits | classical energy | quantum energy | QAOA duration |
-|---|---|---|---|---|---|
-| T72 #132 (test) | 3×3 | 9 | 3.151 | 3.151 | 54.2s |
-| BMP2 #9563 (test) | 3×3 | 9 | 2.2076 | 2.2076 | 61.3s |
-| T72 #132 (test) | 4×4 | 16 | 7.3613 | 7.811 | 58.2s |
-| BMP2 #9563 (test) | 4×4 | 16 | 5.6416 | 6.4482 | 60.1s |
-| T72 #132 (test) | 5×5 | 25 | 11.0345 | 13.8905 | 85.9s |
-| BMP2 #9563 (test) | 5×5 | 25 | 8.7946 | 15.4687 | 90.7s |
+| chip | size | qubits | classical energy | quantum energy | random sampling | classical / quantum IoU | QAOA duration |
+|---|---|---|---|---|---|---|---|
+| T72 #132 (test) | 3×3 | 9 | 6.5307 | 6.5307 | 6.5307 | 0.40 / 0.40 | 66.5s |
+| BMP2 #9563 (test) | 3×3 | 9 | 5.3805 | 5.3805 | 5.3805 | 0.75 / 0.75 | 62.7s |
+| T72 #132 (test) | 4×4 | 16 | 11.3321 | 11.3321 | 12.1226 | 0.44 / 0.44 | 67.6s |
+| BMP2 #9563 (test) | 4×4 | 16 | 7.4675 | 7.4675 | 8.7559 | 0.78 / 0.78 | 70.7s |
+| T72 #132 (test) | 5×5 | 25 | 13.8564 | 14.3462 | 20.1669 | 0.59 / 0.57 | 127.5s |
+| BMP2 #9563 (test) | 5×5 | 25 | 12.1758 | 13.2295 | 18.4777 | 0.71 / 0.67 | 124.2s |
 
-QAOA matches the classical optimum exactly at 9 qubits on both chips; at 16 and 25 qubits, with the same
-optimizer budget, it falls short — a real, honest scaling limit, not a hidden one. Classical graph cut
-has no qubit limit at all: tested at 8×8 (64 pixels, four times QAOA's ceiling) on the same two chips,
-energy 24.2572 (T72 #132) and 26.8995 (BMP2 #9563), both in under 6ms. That asymmetry — classical scales
-trivially, quantum is qubit-capped today — is the honest scaling story.
+QAOA matches the classical optimum at 9 and 16 qubits on both chips. At 25 qubits, with the same
+optimizer budget, it falls short on both (14.3462 against 13.8564, and 13.2295 against 12.1758), and its
+IoU against the mask is a little lower. Random sampling finds the optimum on every seed at 9 qubits, on 6
+and 3 of 30 seeds at 16 qubits, and on none at 25, and QAOA's energy is below the random average in all
+four of the 16- and 25-qubit rows. Each QAOA value is a single run and QAOA is random, so repeat runs can
+differ. The IoU figures are for these two chips only; averaged over 120 chips, edge tiles of this size score lower
+([§12c](#12c-real-mask-results-sarbake)). We do not claim a quantum advantage: the classical solver is exact and takes milliseconds.
+Classical graph cut has no qubit limit: on 8×8 edge patches (64 pixels, four times QAOA's ceiling) it got
+energy 34.1487 (T72 #132) and 27.4969 (BMP2 #9563) in about 3 ms and 2 ms, with IoU 0.71 and 0.78 against
+the mask. Classical scales easily, and quantum is qubit-capped today.
 
 ## 10. Execution pathway
 
@@ -186,31 +188,31 @@ reason the classical-vs-quantum energy comparison is meaningful in the first pla
 
 ## 12. Robustness
 
-Real, controlled evaluation under varying data conditions: a fixed real ROI (T72 #132, the same 3×3=9-
-qubit tile QAOA matches classical at exactly above) run at increasing levels of synthetic Gaussian noise
-added on top of the real magnitude, seeded for reproducibility (`utils/mrf/energy.py`'s
+A controlled evaluation under varying data conditions: a fixed real ROI (T72 #132, the same 3×3 edge tile
+as the first row of §9, where QAOA matches classical) run at increasing levels of synthetic Gaussian noise
+added on top of the real chip, seeded for reproducibility (`utils/mrf/energy.py`'s
 `inject_gaussian_noise`):
 
-| noise σ | classical energy | quantum energy | QAOA matches classical | QAOA duration |
-|---|---|---|---|---|
-| 0.0 | 3.151 | 3.151 | yes | 60.4s |
-| 0.05 | 3.1519 | 3.1519 | yes | 58.7s |
-| 0.1 | 3.1775 | 3.1775 | yes | 61.7s |
-| 0.15 | 3.229 | 3.229 | yes | 319.2s |
-| 0.2 | 3.3 | 3.3 | yes | 58.5s |
-| 0.3 | 3.4489 | 3.4489 | yes | 62.1s |
+| noise σ | classical energy | quantum energy | QAOA matches classical | classical / quantum IoU | QAOA duration |
+|---|---|---|---|---|---|
+| 0.0 | 6.5307 | 6.5307 | yes | 0.40 / 0.40 | 63.3s |
+| 0.05 | 6.1372 | 6.1372 | yes | 0.56 / 0.56 | 62.6s |
+| 0.1 | 5.7537 | 5.7537 | yes | 0.62 / 0.62 | 66.8s |
+| 0.15 | 4.7773 | 4.7773 | yes | 0.62 / 0.62 | 62.9s |
+| 0.2 | 4.1112 | 4.1112 | yes | 0.62 / 0.62 | 63.2s |
+| 0.3 | 3.3779 | 3.3779 | yes | 0.50 / 0.50 | 60.0s |
 
-Classical energy climbs smoothly and predictably as noise increases — the expected effect of a noisier
-signal on unary confidence. QAOA matched the exact classical optimum at every noise level tested, not
-just the clean case. The σ=0.15 row's 319s duration is a real, unexplained outlier (a slow round trip to
-Classiq's platform, not a bug) — reported as measured, not smoothed over. Reproducible via
-`scripts/robustness_sweep.py` against a running instance of the app.
+QAOA matched the exact classical optimum at every noise level, so at this size the match does not depend
+on clean data. Energies cannot be compared between rows, because each noise level is a different image.
+The scores against the mask go from 0.40 with no added noise to 0.62 at moderate noise and 0.50 at the
+highest level. On a 9-pixel tile one pixel moves IoU a lot, so we do not read a trend into that. QAOA and
+the classical solver found the same labeling in every row. Reproducible via `scripts/robustness_sweep.py`
+against a running instance of the app.
 
 ## 12b. Synthetic validation — real Accuracy / IoU / Dice
 
-Every result above this point is scored on energy only, because real MSTAR chips have no per-pixel
-ground truth. This is the one place real Accuracy/IoU/Dice exist in this project — computed only against
-real, known ground truth, never against a real MSTAR chip. Two sources: THALES's own worked example,
+These cases are not MSTAR chips. Each has a known right answer by construction, so Accuracy/IoU/Dice
+are exact here. Two sources: THALES's own worked example,
 quoted directly from page 3 of their brief (the same 5×5 intensity matrix and label matrix printed in the
 document, not paraphrased), and a few small generated cases with a known target region
 (`utils/mrf/synthetic_validation.py`). Runnable live via `POST /api/mstar/synthetic-validation`, or
@@ -218,17 +220,48 @@ reproduced via `scripts/synthetic_validation_run.py`.
 
 | case | size | classical acc/IoU/Dice | quantum acc/IoU/Dice | classical energy | quantum energy | QAOA duration |
 |---|---|---|---|---|---|---|
-| THALES worked example | 5×5 (25q) | 1.00 / 1.00 / 1.00 | 0.96 / 0.92 / 0.96 | 1.4751 | 5.6723 | 94.6s |
+| THALES worked example (first run) | 5×5 (25q) | 1.00 / 1.00 / 1.00 | 0.96 / 0.92 / 0.96 | 1.4751 | 5.6723 | 94.6s |
 | clean 3×3, corner target | 3×3 (9q) | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.5268 | 0.5268 | 68.4s |
 | clean 4×4, block target | 4×4 (16q) | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 1.2643 | 1.2643 | 64.8s |
 | noisy 3×3, σ=0.15 | 3×3 (9q) | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 0.9571 | 0.9571 | 58.1s |
 
 The classical solver reproduces THALES's own stated answer exactly on every case, including their own
 worked example — the strongest validation this project can offer. QAOA matches exactly at 9 and, on this
-cleaner synthetic case, at 16 qubits too — unlike the Scaling sweep in §9, where an arbitrary real MSTAR
-ROI's speckle made 16 qubits fall short. At 25 qubits (THALES's own exact example size), QAOA falls short
-here too (96% accuracy) — consistent with the real qubit-scaling limit disclosed throughout this
+cleaner synthetic case, at 16 qubits too, as in the Scaling sweep in §9, where QAOA is exact up to 16 qubits. At 25 qubits (THALES's own exact example size), QAOA falls short
+here too (92% to 96% accuracy across four runs) — consistent with the real qubit-scaling limit disclosed throughout this
 document, not contradicted by the 16-qubit result.
+
+## 12c. Real-mask results (SARBake)
+
+MSTAR's public release has no per-pixel masks, but the SARBake overlay (Malmgren-Hansen and
+Nobel-Jørgensen, CC BY 4.0, doi:10.17632/jxhsg8tj7g.3) provides one for every T72, BMP2 and BTR70 chip we
+use: background, target or shadow per pixel, generated from a 3D CAD model of the vehicle at the chip's
+viewing angle (`utils/mrf/sarbake.py`). It is a good reference, not hand-drawn ground truth. It covers the
+bright vehicle return rather than every pixel a person might outline, and includes thin antenna slivers.
+
+The unary term measures each pixel's brightness in decibels against its own chip's background, with a few
+constants (where a pixel starts to count as target, and the expected brightness of target and shadow) set on
+the MSTAR TRAIN chips (17°). The classical solvers were then scored on 120 random TEST chips (15°), 40 each
+of BMP2, BTR70 and T72, using a 48×48 region around each vehicle (`scripts/sarbake_eval.py`, no quantum
+runs). The earlier unary term used the log-scaled, min-max normalized magnitude directly as the target
+probability.
+
+| score on 120 TEST chips | earlier setup | decibel setup |
+|---|---|---|
+| two classes: target IoU | 0.04 | 0.56 |
+| two classes: target Dice | 0.07 | 0.70 |
+| two classes: precision / recall | 0.99 / 0.04 | 0.79 / 0.66 |
+| two classes: chips with IoU above 0.5 | 0 of 120 | 89 of 120 |
+| three classes: pixel accuracy | 0.44 | 0.82 |
+| three classes: mean IoU | 0.16 | 0.66 |
+| three classes: target / shadow IoU | 0.03 / 0.00 | 0.61 / 0.72 |
+
+The earlier setup marked about 13 target pixels where the mask has about 320, so nearly everything came
+out as background. That is why it was replaced. Per vehicle, two-class IoU with the decibel setup is 0.55
+(BMP2), 0.50 (BTR70) and 0.62 (T72).
+
+On the small edge tiles the quantum solver can run on, scores are much lower. Each tile is placed where the mask is about half target, which is the hardest case. Averaged over the same 120 chips, target IoU is 0.12 on 2x2 tiles, 0.18 on 4x4 and 0.34 on 8x8. For three classes on these tiles, pixel accuracy is 0.32 to 0.36, below the 0.50 you would get by always choosing the most common class. A few speckled pixels give little evidence for separating target, shadow and background. The two chips in the Scaling table score higher than these averages, so their IoU should not be read as typical. These small-tile scores are in `datasets/reports/sarbake_eval.json`
+under `edge_tiles`.
 
 ## 13. Beyond binary extensions
 
@@ -259,9 +292,12 @@ Live-streaming real per-iteration QAOA progress, not a simulated loading animati
 
 - Real qubit ceiling (~25 qubits) caps Q=2 at a 5×5 tile, Q=3 at a 2×2 tile. A full 128×128 chip needs
   tiling into many small ROIs; this app runs one ROI at a time and says so.
-- No per-pixel ground truth in the public MSTAR release — every comparison is on real objective energy,
-  never a fabricated IoU/Dice/precision number.
-- Q=3 loses Q=2's exactness guarantee — alpha-expansion is a real, working, but approximate algorithm.
+- No hand-drawn ground truth for MSTAR. Real-chip scores use the SARBake masks, which come from CAD models,
+  so they are a good guide and not perfect truth. Chips without a mask (SLICY) are compared on energy only.
+- The decibel constants were tuned on a small grid with some values at the edge of the range, so a wider
+  search might do slightly better. The real-mask scores are classical only. Quantum was scored on edge
+  tiles of up to 5×5 pixels (§9), not on whole regions.
+- Q=3 loses the exactness guarantee of Q=2: alpha-expansion is a working but approximate algorithm.
 - Pattern detection's 51.79% accuracy is a deliberately simple, transparent baseline, not a claim of
   matching modern CNN-based MSTAR classifiers (~95%+).
 - Every quantum result here runs on a Classiq simulator backend (`simulator` / `nvidia_simulator` /
@@ -282,5 +318,7 @@ Live-streaming real per-iteration QAOA progress, not a simulated loading animati
 - Scaling sweep: `scripts/scaling_sweep.py`
 - Robustness sweep: `scripts/robustness_sweep.py`
 - Synthetic validation sweep: `scripts/synthetic_validation_run.py`
-- Full test suite: `pytest tests/ -q` (47 tests, real MSTAR chips, no mocks)
+- Real-mask evaluation: `scripts/sarbake_eval.py` (classical only, no Classiq session needed)
+- Random-sampling baseline: `scripts/random_baseline.py`
+- Full test suite: `pytest tests/ -q` (52 tests, real MSTAR chips, no mocks)
 - Live app: see [README.md](../README.md) for setup and run instructions

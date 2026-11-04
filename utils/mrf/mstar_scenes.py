@@ -265,3 +265,54 @@ def read_intensity_window(chip_id: str, row0: int, col0: int, size: int) -> np.n
     if row0 < 0 or col0 < 0 or row0 + size > h or col0 + size > w:
         raise ValueError(f"window (row0={row0}, col0={col0}, size={size}) is out of bounds for a {h}x{w} chip")
     return full[row0 : row0 + size, col0 : col0 + size]
+
+
+# --- Decibel-scaled intensity, calibrated against the SARBake masks ----------
+# The log1p/min-max intensity above is dominated by each chip's few brightest
+# spikes, so almost every pixel ends up near 0.05 and a vehicle's return looks
+# like background. Scored against the SARBake masks (utils/mrf/sarbake.py) it
+# labels only about 13 of roughly 320 target pixels. The functions below
+# measure each pixel in decibels relative to its own chip's background (robust
+# z-score: median and MAD of the dB image), which puts vehicle returns and
+# shadows well away from clutter. The constants were chosen on the MSTAR TRAIN
+# split and are scored on the TEST split (scripts/sarbake_eval.py).
+
+Z_LO = -4.0  # z-score mapped to intensity 0
+Z_SPAN = 12.0  # intensity = (z - Z_LO) / Z_SPAN, clipped to [0, 1]
+BINARY_Z_THRESHOLD = 0.8  # two-class: P(target) = sigmoid(z - this)
+THREE_CLASS_TARGET_Z = 1.5  # three-class label means, in z units; background is 0 by construction
+THREE_CLASS_SHADOW_Z = -1.0
+THREE_CLASS_Z_SCALE = 3.0  # distance (in z) that costs one unit of unary energy
+
+
+def z_to_intensity(z):
+    return np.clip((np.asarray(z, dtype=np.float64) - Z_LO) / Z_SPAN, 0.0, 1.0)
+
+
+def intensity_to_z(intensity):
+    return np.asarray(intensity, dtype=np.float64) * Z_SPAN + Z_LO
+
+
+def calibrate_magnitude(magnitude: np.ndarray) -> np.ndarray:
+    """Calibrated intensity in [0, 1] for a raw MSTAR magnitude plane."""
+    db = 20 * np.log10(magnitude.astype(np.float64) + 1e-6)
+    med = np.median(db)
+    mad = np.median(np.abs(db - med)) * 1.4826 + 1e-9
+    return z_to_intensity((db - med) / mad)
+
+
+def calibrated_intensity(chip_id: str) -> np.ndarray:
+    return calibrate_magnitude(_load(chip_id).magnitude)
+
+
+def read_calibrated_window(chip_id: str, row0: int, col0: int, size: int) -> np.ndarray:
+    full = calibrated_intensity(chip_id)
+    h, w = full.shape
+    if row0 < 0 or col0 < 0 or row0 + size > h or col0 + size > w:
+        raise ValueError(f"window (row0={row0}, col0={col0}, size={size}) is out of bounds for a {h}x{w} chip")
+    return full[row0 : row0 + size, col0 : col0 + size]
+
+
+def target_probability(intensity: np.ndarray) -> np.ndarray:
+    """Per-pixel P(target) for the two-class model, from calibrated intensity."""
+    return 1.0 / (1.0 + np.exp(-(intensity_to_z(intensity) - BINARY_Z_THRESHOLD)))
