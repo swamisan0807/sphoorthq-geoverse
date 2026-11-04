@@ -3,14 +3,18 @@ same utils.mrf.energy pipeline used elsewhere in this project (see that
 module's docstring) - this project's segmentation target, replacing
 sen1floods11 flood segmentation.
 
-Honest about what this is NOT:
+What this module does and does not provide:
   - the MSTAR public target-chip release has no per-pixel segmentation
-    ground truth. Each chip's Phoenix header gives real, per-chip metadata
+    ground truth. Each chip's Phoenix header gives per-chip metadata
     (target type, serial number, azimuth, depression angle - see
-    utils.mstar.reader) but not a target/background mask, so - exactly like
-    utils.mrf.sentinel1_raw and the /api/mrf/upload path - the chip's own
-    normalized magnitude is used directly as unary/intensity evidence, and
-    results are reported as energy only, honestly, with metrics=None.
+    utils.mstar.reader) but not a target/background mask. Scoring against
+    reference masks is done separately, with the SARBake overlay
+    (utils.mrf.sarbake), which is CAD-derived and so a good reference rather
+    than hand-drawn ground truth. Without a mask, results are energy only.
+  - the unary term is the chip's own brightness in decibels, measured
+    against that chip's background (see the calibration section at the end of
+    this module). The older log1p/min-max intensity is kept for the ROI
+    presets only.
   - no radiometric calibration beyond what MSTAR's own SensorCalibrationFactor
     already applied when the magnitude data was produced.
 
@@ -21,7 +25,6 @@ SensorName), decoded directly from the on-disk chip files.
 
 import base64
 import io
-from pathlib import Path
 
 import numpy as np
 from PIL import Image

@@ -20,21 +20,21 @@ from pydantic import BaseModel
 
 from apps.api.routers.auth import get_current_user
 from utils.jobs import engine as jobs_engine
+from utils.mrf import sarbake
 from utils.mrf.energy import build_patch_energy, inject_gaussian_noise
 from utils.mrf.mstar_scenes import CATALOG as MSTAR_CATALOG
-from utils.mrf.mstar_scenes import MSTAR_DIR
-from utils.mrf.mstar_scenes import chip_info as mstar_chip_info
-from utils.mrf.mstar_scenes import chip_preview_png_base64
 from utils.mrf.mstar_scenes import (
+    MSTAR_DIR,
     THREE_CLASS_SHADOW_Z,
     THREE_CLASS_TARGET_Z,
     THREE_CLASS_Z_SCALE,
     Z_SPAN,
+    chip_preview_png_base64,
     target_probability,
     z_to_intensity,
 )
+from utils.mrf.mstar_scenes import chip_info as mstar_chip_info
 from utils.mrf.mstar_scenes import read_calibrated_window as read_mstar_window
-from utils.mrf import sarbake
 from utils.mrf.multilabel_energy import N_LABELS, build_multilabel_energy, energy_multilabel
 from utils.mrf.multilabel_energy import build_qubo_multilabel as build_shadow_qubo
 from utils.mrf.multilabel_energy import solve_alpha_expansion as solve_shadow_classical

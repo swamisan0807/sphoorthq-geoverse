@@ -44,11 +44,10 @@ const NOISE_SWEEP = [
 // example (quoted directly from their brief, page 3) plus small generated
 // cases with a known target region (utils/mrf/synthetic_validation.py).
 // Run live via scripts/synthetic_validation_run.py against this app's own
-// POST /api/mstar/synthetic-validation - never against a real MSTAR chip.
-// The 16-qubit row matching exactly (unlike the Scaling sweep's 16-qubit
-// row above) is not cherry-picked - it is a real, honest difference: this
-// synthetic case has a cleaner optimization landscape (a solid block, no
-// real SAR speckle) than an arbitrary MSTAR ROI.
+// POST /api/mstar/synthetic-validation. None of these cases is an MSTAR chip.
+// The 16-qubit row matches exactly, as in the Scaling sweep. The 25-qubit THALES
+// example falls short in every run (accuracy 0.92 to 0.96 over four runs); the
+// table shows the first run.
 const SYNTHETIC_VALIDATION = [
   { name: "THALES worked example", size: 5, qubits: 25, classicalAcc: 1.0, quantumAcc: 0.96, classicalIoU: 1.0, quantumIoU: 0.9167, classicalE: 1.4751, quantumE: 5.6723, quantumDuration: 94.6 },
   { name: "clean 3x3, corner target", size: 3, qubits: 9, classicalAcc: 1.0, quantumAcc: 1.0, classicalIoU: 1.0, quantumIoU: 1.0, classicalE: 0.5268, quantumE: 0.5268, quantumDuration: 68.4 },
@@ -571,7 +570,7 @@ export default function AboutPage() {
           Here the vehicle's shadow becomes a third label, using the same region as the two-class run above but with
           a multi-label MRF. The exactness guarantee does not carry over. Graph cut needs exactly two labels, so for
           three the classical solver falls back to alpha-expansion, which is approximate. The one-hot QUBO also needs
-          three qubits per pixel instead of one, so the quantum path tops out at a 2x2 tile instead of 5x5. Scored
+          three qubits per pixel instead of one, so the quantum path is limited to a 2x2 tile instead of 5x5. Scored
                     against the SARBake masks on 120 TEST chips (see Real-mask results), the three-class classical result
                     reaches a mean IoU of 0.66, with 0.72 for the shadow.
         </p>
@@ -644,8 +643,7 @@ export default function AboutPage() {
           </li>
           <li>
             <strong>Quantum suitability:</strong> correct at small scale: exact at 9 and 16 qubits on both chips tested. At
-          25 qubits it falls short, limited by the qubit budget and the optimizer, and the available simulators top out
-          around 25 to 28 qubits.
+          25 qubits it falls short, limited by the qubit budget and the optimizer, and the available simulators are limited to around 25 to 28 qubits.
           </li>
           <li>
             <strong>Execution pathway:</strong> Classiq Qmod, synthesis, ExecutionSession, with a scipy optimizer loop on top.
