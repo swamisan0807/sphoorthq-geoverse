@@ -47,7 +47,7 @@ export default function LoginPage({ onAuthed }: { onAuthed: () => void }) {
           {logoMissing ? (
             <BrandMark size={40} />
           ) : (
-            <img src={`${import.meta.env.BASE_URL}logo.png`} alt="SphoorthiQ logo" className="login-logo" onError={() => setLogoMissing(true)} />
+            <img src="/logo.png" alt="SphoorthiQ logo" className="login-logo" onError={() => setLogoMissing(true)} />
           )}
         </div>
         <h1>

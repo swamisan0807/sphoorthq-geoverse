@@ -183,17 +183,6 @@ cd ..
 
 Open `http://<the machine's address>:8000` — API and UI on the same origin.
 
-### GitHub Pages (public showcase)
-
-`.github/workflows/deploy-pages.yml` publishes **only** the built web UI (`apps/web/dist`), never the repository,
-to GitHub Pages. GitHub Pages has no backend, so that public copy is a showcase of the About page and its measured
-results; the interactive tools still run on the server above. The Pages build sets `VITE_SHOWCASE=true` and passes the
-site path with `--base`, so `vite.config.ts` and the build the server serves are unchanged.
-
-- One-time setup: Settings > Pages > Source: **GitHub Actions**. Pages from a private repository needs a paid GitHub plan.
-- To let the Pages copy sign in, set the repository variable `API_BASE_URL` to a hosted API and add the site's origin to that
-  API's `CORS_ORIGINS`.
-
 ## API
 
 | Endpoint | What it does |
