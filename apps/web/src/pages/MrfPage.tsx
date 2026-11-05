@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import {
   api,
   type MstarChipInfo,
@@ -544,7 +543,7 @@ export default function MrfPage() {
 background. This tool segments a real radar image by labelling each pixel as vehicle or background, using two
 solvers on the same objective: an exact classical method (graph cut), which is guaranteed to find the optimal
 labelling for two classes, and a quantum method (QAOA) executed on Classiq's simulator. The two results are
-presented side by side on real radar data. The <Link to="/about">About</Link> page describes how the comparison is
+presented side by side on real radar data. The <a href="/about">About</a> page describes how the comparison is
 kept fair.
         </p>
       </div>
