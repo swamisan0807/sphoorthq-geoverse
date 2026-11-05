@@ -78,10 +78,10 @@ export interface MrfQuantumResult extends MrfSolverResult {
   cost_history: number[]; // shot-weighted mean QUBO energy per COBYLA iteration - the energy-convergence trace
 }
 
-// Real MSTAR SAR vehicle-target chips (utils/mrf/mstar_scenes.py) - see
-// MstarResponse.note for exactly what "real" does and doesn't mean here (no
-// per-pixel target/background mask exists in the public release, so
-// classical/quantum are compared on energy only, never a fabricated metric).
+// Real MSTAR SAR vehicle-target chips (utils/mrf/mstar_scenes.py). The public
+// release has no per-pixel mask, so results are scored against the SARBake
+// reference mask when one is available (reference_mask, metrics), and
+// compared on energy only otherwise. See MstarResponse.note.
 export interface MstarChipInfo {
   chip_id: string;
   target_type: string;
@@ -123,7 +123,8 @@ export interface MstarResponse {
   row0: number;
   col0: number;
   size: number;
-  roi_intensity: number[][]; // the actual normalized magnitude the unary term was built from
+  roi_intensity: number[][]; // the calibrated intensity the unary term was built from
+  reference_mask: number[][] | null; // SARBake mask for this window (1 = target), when available
   classical: MrfSolverResult;
   quantum: MrfQuantumResult | null;
   note: string | null;
@@ -161,6 +162,7 @@ export interface ShadowSolverResult {
   labels: number[][]; // 0=background, 1=target, 2=shadow
   energy: number;
   duration_s: number;
+  metrics?: Record<string, number | null> | null; // scored against the SARBake mask when available (null = class absent)
 }
 
 export interface ShadowQuantumSolverResult extends ShadowSolverResult {
@@ -182,6 +184,7 @@ export interface MstarShadowResponse {
   col0: number;
   size: number;
   background_mu: number;
+  reference_mask: number[][] | null; // SARBake mask for this window (0/1/2), when available
   classical: ShadowSolverResult;
   quantum: ShadowQuantumSolverResult | null;
   note: string | null;

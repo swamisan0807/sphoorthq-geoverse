@@ -67,6 +67,9 @@ def build_multilabel_energy(
     background_mu: float,
     smoothness: float = 1.0,
     contrast_sigma: float = 0.15,
+    target_mu: float = 1.0,
+    shadow_mu: float = 0.0,
+    unary_scale: float = 1.0,
 ) -> MultiLabelPatchEnergy:
     """intensity: (h, w) normalized magnitude in [0, 1], same real signal
     utils.mrf.energy.build_patch_energy uses. background_mu: the parent
@@ -74,8 +77,8 @@ def build_multilabel_energy(
     not a fixed constant - grounds the "typical background" reference in
     what this specific chip's clutter actually looks like."""
     h, w = intensity.shape
-    mu = {BACKGROUND: background_mu, TARGET: 1.0, SHADOW: 0.0}
-    unary = np.stack([(intensity - mu[k]) ** 2 for k in range(N_LABELS)]).reshape(N_LABELS, -1)
+    mu = {BACKGROUND: background_mu, TARGET: target_mu, SHADOW: shadow_mu}
+    unary = unary_scale * np.stack([(intensity - mu[k]) ** 2 for k in range(N_LABELS)]).reshape(N_LABELS, -1)
 
     edges: list[tuple[int, int]] = []
     edge_weights: list[float] = []

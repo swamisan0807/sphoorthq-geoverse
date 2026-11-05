@@ -10,11 +10,18 @@ already be authenticated - see README.md)
 """
 
 import json
+import os
+import sys
 import urllib.request
 
-BASE = "http://127.0.0.1:8000"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils.mrf import sarbake  # noqa: E402
+
+BASE = os.environ.get("APP_BASE", "http://127.0.0.1:8000")
 CHIP_ID = "t72_132_test_1"
-ROW0, COL0, SIZE = 70, 62, 3  # 3x3 = 9 qubits - the tier QAOA matches classical exactly at (see About page Scaling)
+SIZE = 3  # 3x3 = 9 qubits - the tier QAOA matches classical exactly at (see About page Scaling)
+ROW0, COL0 = sarbake.boundary_window(CHIP_ID, SIZE)  # a tile on the vehicle's edge, so noise can change the answer
 SIGMAS = [0.0, 0.05, 0.1, 0.15, 0.2, 0.3]
 
 
@@ -53,13 +60,17 @@ def main() -> None:
         quantum_e = quantum["energy"] if quantum else None
         duration = quantum["duration_s"] if quantum else None
         match = quantum_e is not None and abs(quantum_e - classical_e) < 1e-6
-        rows.append((sigma, classical_e, quantum_e, duration, match))
-        print(f"sigma={sigma:<5} classical={classical_e:<10} quantum={quantum_e!s:<10} match={match} duration={duration}s", flush=True)
+        c_iou = result["classical"]["metrics"]["iou"]
+        q_iou = quantum["metrics"]["iou"] if quantum else None
+        rows.append((sigma, classical_e, quantum_e, duration, match, c_iou, q_iou))
+        print(f"sigma={sigma:<5} classical={classical_e:<10} quantum={quantum_e!s:<10} match={match} classicalIoU={c_iou:.2f} quantumIoU={q_iou} duration={duration}s", flush=True)
 
-    print("\n| noise sigma | classical energy | quantum energy | QAOA matches classical | QAOA duration |")
-    print("|---|---|---|---|---|")
-    for sigma, ce, qe, dur, match in rows:
-        print(f"| {sigma} | {ce} | {qe} | {'yes' if match else 'no'} | {dur:.1f}s |" if dur else f"| {sigma} | {ce} | {qe} | {match} | - |")
+    print("\n| noise sigma | classical energy | quantum energy | QAOA matches classical | classical IoU | quantum IoU | QAOA duration |")
+    print("|---|---|---|---|---|---|---|")
+    for sigma, ce, qe, dur, match, ci, qi in rows:
+        print(f"| {sigma} | {ce} | {qe} | {'yes' if match else 'no'} | {ci:.2f} | {qi:.2f} | {dur:.1f}s |" if dur else f"| {sigma} | {ce} | {qe} | {match} | {ci:.2f} | - | - |")
+    print()
+    print(json.dumps(rows))
 
 
 if __name__ == "__main__":

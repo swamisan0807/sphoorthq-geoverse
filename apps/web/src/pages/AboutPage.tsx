@@ -1,44 +1,54 @@
-// Real sweep: two real MSTAR chips (T72 #132, BMP2 #9563), three qubit
-// tiers, run live against this app's own POST /api/mstar - not simulated,
-// not hand-picked to make quantum look better (16/25-qubit rows genuinely
-// fall short of the classical optimum, and that's shown, not hidden).
-const SWEEP = [
-  { chip: "T72 #132 (test)", size: 3, qubits: 9, classicalE: 3.151, quantumE: 3.151, quantumDuration: 54.2 },
-  { chip: "BMP2 #9563 (test)", size: 3, qubits: 9, classicalE: 2.2076, quantumE: 2.2076, quantumDuration: 61.3 },
-  { chip: "T72 #132 (test)", size: 4, qubits: 16, classicalE: 7.3613, quantumE: 7.811, quantumDuration: 58.2 },
-  { chip: "BMP2 #9563 (test)", size: 4, qubits: 16, classicalE: 5.6416, quantumE: 6.4482, quantumDuration: 60.1 },
-  { chip: "T72 #132 (test)", size: 5, qubits: 25, classicalE: 11.0345, quantumE: 13.8905, quantumDuration: 85.9 },
-  { chip: "BMP2 #9563 (test)", size: 5, qubits: 25, classicalE: 8.7946, quantumE: 15.4687, quantumDuration: 90.7 },
+// Scores from scripts/sarbake_eval.py (datasets/reports/sarbake_eval.json): 120 random MSTAR TEST chips
+// (40 per vehicle), 48x48 region around each vehicle, classical solvers only, scored against the SARBake masks.
+const REAL_MASK_ROWS = [
+  { label: "two classes: target IoU", before: "0.04", after: "0.56" },
+  { label: "two classes: target Dice", before: "0.07", after: "0.70" },
+  { label: "two classes: precision / recall", before: "0.99 / 0.04", after: "0.79 / 0.66" },
+  { label: "two classes: chips with IoU above 0.5", before: "0 of 120", after: "89 of 120" },
+  { label: "three classes: pixel accuracy", before: "0.44", after: "0.82" },
+  { label: "three classes: mean IoU", before: "0.16", after: "0.66" },
+  { label: "three classes: target / shadow IoU", before: "0.03 / 0.00", after: "0.61 / 0.72" },
 ];
 
-// Real robustness sweep: one real MSTAR ROI (T72 #132, same 3x3=9-qubit
-// tile as the Scaling row above - the tier QAOA matches exactly at, so
-// this isolates the effect of noise from the effect of qubit budget),
-// run live via scripts/robustness_sweep.py against this app's own
-// POST /api/mstar at increasing synthetic-noise levels
-// (utils.mrf.energy.inject_gaussian_noise) on top of the real magnitude.
-// sigma=0.15's 319s duration is a real, unexplained outlier (a slow
-// Classiq platform round trip, not a bug) - shown as measured, not
-// smoothed over.
+// Real sweep: two MSTAR chips (T72 #132, BMP2 #9563), three qubit tiers, run
+// live against this app's own POST /api/mstar with scripts/scaling_sweep.py.
+// Each tile sits on the vehicle's edge (half target by the SARBake mask), and
+// both results are scored against that mask. randomE is the lowest energy
+// found by random sampling with QAOA's sample budget, averaged over 30 seeds
+// (scripts/random_baseline.py). gaE is the same for a Python genetic algorithm
+// (scripts/ga_baseline.py). Each QAOA value is one run.
+const SWEEP = [
+  { chip: "T72 #132 (test)", size: 3, qubits: 9, classicalE: 6.5307, quantumE: 6.5307, randomE: 6.5307, gaE: 6.5307, classicalIoU: 0.4, quantumIoU: 0.4, quantumDuration: 66.5 },
+  { chip: "BMP2 #9563 (test)", size: 3, qubits: 9, classicalE: 5.3805, quantumE: 5.3805, randomE: 5.3805, gaE: 5.3805, classicalIoU: 0.75, quantumIoU: 0.75, quantumDuration: 62.7 },
+  { chip: "T72 #132 (test)", size: 4, qubits: 16, classicalE: 11.3321, quantumE: 11.3321, randomE: 12.1226, gaE: 11.4294, classicalIoU: 0.44, quantumIoU: 0.44, quantumDuration: 67.6 },
+  { chip: "BMP2 #9563 (test)", size: 4, qubits: 16, classicalE: 7.4675, quantumE: 7.4675, randomE: 8.7559, gaE: 7.4675, classicalIoU: 0.78, quantumIoU: 0.78, quantumDuration: 70.7 },
+  { chip: "T72 #132 (test)", size: 5, qubits: 25, classicalE: 13.8564, quantumE: 14.3462, randomE: 20.1669, gaE: 13.9659, classicalIoU: 0.59, quantumIoU: 0.57, quantumDuration: 127.5 },
+  { chip: "BMP2 #9563 (test)", size: 5, qubits: 25, classicalE: 12.1758, quantumE: 13.2295, randomE: 18.4777, gaE: 12.3871, classicalIoU: 0.71, quantumIoU: 0.67, quantumDuration: 124.2 },
+];
+
+// Robustness sweep (scripts/robustness_sweep.py): the T72 #132 3x3 edge tile
+// from the first Scaling row, at increasing Gaussian noise
+// (utils.mrf.energy.inject_gaussian_noise) added on top of the real chip, both
+// results scored against the SARBake mask. Each noise level is a different
+// image, so energies are not comparable between rows.
 const NOISE_SWEEP = [
-  { sigma: 0.0, classicalE: 3.151, quantumE: 3.151, quantumDuration: 60.4 },
-  { sigma: 0.05, classicalE: 3.1519, quantumE: 3.1519, quantumDuration: 58.7 },
-  { sigma: 0.1, classicalE: 3.1775, quantumE: 3.1775, quantumDuration: 61.7 },
-  { sigma: 0.15, classicalE: 3.229, quantumE: 3.229, quantumDuration: 319.2 },
-  { sigma: 0.2, classicalE: 3.3, quantumE: 3.3, quantumDuration: 58.5 },
-  { sigma: 0.3, classicalE: 3.4489, quantumE: 3.4489, quantumDuration: 62.1 },
+  { sigma: 0.0, classicalE: 6.5307, quantumE: 6.5307, classicalIoU: 0.4, quantumIoU: 0.4, quantumDuration: 63.3 },
+  { sigma: 0.05, classicalE: 6.1372, quantumE: 6.1372, classicalIoU: 0.56, quantumIoU: 0.56, quantumDuration: 62.6 },
+  { sigma: 0.1, classicalE: 5.7537, quantumE: 5.7537, classicalIoU: 0.62, quantumIoU: 0.62, quantumDuration: 66.8 },
+  { sigma: 0.15, classicalE: 4.7773, quantumE: 4.7773, classicalIoU: 0.62, quantumIoU: 0.62, quantumDuration: 62.9 },
+  { sigma: 0.2, classicalE: 4.1112, quantumE: 4.1112, classicalIoU: 0.62, quantumIoU: 0.62, quantumDuration: 63.2 },
+  { sigma: 0.3, classicalE: 3.3779, quantumE: 3.3779, classicalIoU: 0.5, quantumIoU: 0.5, quantumDuration: 60.0 },
 ];
 
 // Real Accuracy/IoU/Dice - the one place these exist in this app, because
-// it's the one place real ground truth exists: THALES's own worked
+// it is the one place real ground truth exists: THALES's own worked
 // example (quoted directly from their brief, page 3) plus small generated
 // cases with a known target region (utils/mrf/synthetic_validation.py).
 // Run live via scripts/synthetic_validation_run.py against this app's own
-// POST /api/mstar/synthetic-validation - never against a real MSTAR chip.
-// The 16-qubit row matching exactly (unlike the Scaling sweep's 16-qubit
-// row above) isn't cherry-picked - it's a real, honest difference: this
-// synthetic case has a cleaner optimization landscape (a solid block, no
-// real SAR speckle) than an arbitrary MSTAR ROI.
+// POST /api/mstar/synthetic-validation. None of these cases is an MSTAR chip.
+// The 16-qubit row matches exactly, as in the Scaling sweep. The 25-qubit THALES
+// example falls short in every run (accuracy 0.92 to 0.96 over four runs); the
+// table shows the first run.
 const SYNTHETIC_VALIDATION = [
   { name: "THALES worked example", size: 5, qubits: 25, classicalAcc: 1.0, quantumAcc: 0.96, classicalIoU: 1.0, quantumIoU: 0.9167, classicalE: 1.4751, quantumE: 5.6723, quantumDuration: 94.6 },
   { name: "clean 3x3, corner target", size: 3, qubits: 9, classicalAcc: 1.0, quantumAcc: 1.0, classicalIoU: 1.0, quantumIoU: 1.0, classicalE: 0.5268, quantumE: 0.5268, quantumDuration: 68.4 },
@@ -53,11 +63,11 @@ interface WfStage {
   kind: "challenge" | "input" | "prep" | "roi" | "classical" | "quantum" | "merge" | "metrics" | "compare" | "scaling" | "dossier" | "pattern";
 }
 
-const CHALLENGE: WfStage = { key: "challenge", kind: "challenge", title: "THALES SAR", detail: "Industrial challenge - SAR image segmentation via quantum optimization" };
+const CHALLENGE: WfStage = { key: "challenge", kind: "challenge", title: "THALES SAR", detail: "Industrial challenge: SAR image segmentation with quantum optimization" };
 const LINEAR: WfStage[] = [
-  { key: "input", kind: "input", title: "MSTAR SAR chip", detail: "Real X-band target chip, 128x128 (or 54x54 for SLICY) - not the 64x64 THALES describes for its own synthetic validation set" },
-  { key: "prep", kind: "prep", title: "Preprocessing", detail: "Log-scale + normalize the real magnitude" },
-  { key: "roi", kind: "roi", title: "ROI selection", detail: "row0, col0, size - up to 5x5 (25 qubits) for QAOA, larger for classical-only (no qubit limit)" },
+  { key: "input", kind: "input", title: "MSTAR SAR chip", detail: "X-band target chip, 128x128 (or 54x54 for SLICY). THALES describes 64x64 pre-segmented images. The public MSTAR release has 128x128 chips, and the masks come from the separate SARBake overlay" },
+  { key: "prep", kind: "prep", title: "Preprocessing", detail: "Convert to decibels, measured against the chip's own background" },
+  { key: "roi", kind: "roi", title: "ROI selection", detail: "Row, column and size. Up to 5x5 (25 qubits) for QAOA, larger for the classical solver alone" },
 ];
 const CLASSICAL_BRANCH: WfStage[] = [
   { key: "c1", kind: "classical", title: "Classical MRF", detail: "Unary + pairwise energy" },
@@ -65,18 +75,19 @@ const CLASSICAL_BRANCH: WfStage[] = [
   { key: "c3", kind: "classical", title: "Classical segmentation", detail: "Exact MAP labeling, no qubit limit" },
 ];
 const QUANTUM_BRANCH: WfStage[] = [
-  { key: "q1", kind: "quantum", title: "Quantum-ready MRF", detail: "Formulate as QUBO" },
-  { key: "q2", kind: "quantum", title: "QAOA", detail: "QUBO -> Ising Hamiltonian, variational optimization" },
-  { key: "q3", kind: "quantum", title: "Classiq / Qmod", detail: "qaoa_init + qaoa_layer, synthesis & execution" },
-  { key: "q4", kind: "quantum", title: "Classiq backend", detail: "simulator / nvidia_simulator / dgx_simulator - no real quantum hardware wired up" },
-  { key: "q5", kind: "quantum", title: "Quantum segmentation", detail: "Best sampled bitstring -> mask" },
+  { key: "q1", kind: "quantum", title: "QUBO", detail: "The same energy, rewritten as a QUBO and checked exact on all 65,536 labelings of a 4x4 patch" },
+  { key: "q2", kind: "quantum", title: "Ising Hamiltonian", detail: "The QUBO converted into the form QAOA works with" },
+  { key: "q3", kind: "quantum", title: "QAOA circuit on Classiq", detail: "Built from Classiq's qaoa_init and qaoa_layer (2 layers by default) and synthesized on their platform" },
+  { key: "q4", kind: "quantum", title: "Optimizer loop", detail: "COBYLA tunes the circuit for up to 15 steps. Each step is one 512-shot job, scored on the real QUBO energy" },
+  { key: "q5", kind: "quantum", title: "Final sample", detail: "2,048 shots at the tuned settings. The lowest-energy bitstring seen becomes the mask" },
+  { key: "q6", kind: "quantum", title: "Classiq simulator", detail: "Every run so far is on a simulator (simulator, nvidia_simulator or dgx_simulator). No real quantum hardware is connected" },
 ];
 const TAIL: WfStage[] = [
   { key: "merge", kind: "merge", title: "Segmentation masks", detail: "Classical + quantum results, same chip, same ROI" },
-  { key: "metrics", kind: "metrics", title: "Energy comparison", detail: "Classical vs quantum objective value - no IoU/Dice/Precision/Recall: MSTAR's public release has no per-pixel mask to score against" },
+  { key: "metrics", kind: "metrics", title: "Energy comparison", detail: "Energy for both solvers, plus IoU and Dice against the SARBake mask where one exists" },
   { key: "compare", kind: "compare", title: "Classical vs quantum", detail: "Side-by-side comparison & analysis" },
-  { key: "scaling", kind: "scaling", title: "Feasibility & scaling", detail: "Real qubit ceiling (9/16/25 tested live), tiling, honest limits - see Scaling below" },
-  { key: "dossier", kind: "dossier", title: "Algorithm dossier", detail: "Final report, wired into this running app - not a standalone notebook" },
+  { key: "scaling", kind: "scaling", title: "Feasibility & scaling", detail: "Qubit ceiling (9, 16 and 25 qubits tested), tiling and known limits. See Scaling below" },
+  { key: "dossier", kind: "dossier", title: "Algorithm dossier", detail: "The final report, part of this running app rather than a separate notebook" },
 ];
 
 // THALES's "beyond binary" bullets - real, shipped extensions of the same
@@ -85,16 +96,16 @@ const TAIL: WfStage[] = [
 // utils/mstar/pattern_recognition.py). Shown as their own small diagrams
 // rather than folded into the Q=2 diagram above because they branch off
 // at different points (shadow reuses the ROI; pattern detection runs on
-// the whole chip, independent of ROI/size) and pattern detection isn't an
+// the whole chip, independent of ROI/size) and pattern detection is not an
 // MRF/QUBO/QAOA pipeline at all - honest to keep it visually separate.
-const SHADOW_ROI: WfStage = { key: "shadow-roi", kind: "roi", title: "Same ROI", detail: "Reuses row0/col0/size from the Q=2 pipeline above - same real chip patch" };
-const SHADOW_MRF: WfStage = { key: "shadow-mrf", kind: "prep", title: "Multi-label MRF", detail: "3 labels this time: background/target/shadow (Q=3) - utils/mrf/multilabel_energy.py" };
+const SHADOW_ROI: WfStage = { key: "shadow-roi", kind: "roi", title: "Same ROI", detail: "Reuses the row, column and size from the two-class pipeline above, so the same chip patch" };
+const SHADOW_MRF: WfStage = { key: "shadow-mrf", kind: "prep", title: "Multi-label MRF", detail: "Three labels this time: background, target and shadow (Q=3), in utils/mrf/multilabel_energy.py" };
 const SHADOW_CLASSICAL_BRANCH: WfStage[] = [
   {
     key: "sc1",
     kind: "classical",
     title: "Alpha-expansion",
-    detail: "Iterated binary graph-cut moves (Boykov-Veksler-Zabih) - approximate for Q=3, unlike Q=2's single exact graph cut",
+    detail: "Repeated binary graph-cut moves (Boykov-Veksler-Zabih). Approximate for three labels, unlike the single exact cut for two",
   },
 ];
 const SHADOW_QUANTUM_BRANCH: WfStage[] = [
@@ -103,13 +114,13 @@ const SHADOW_QUANTUM_BRANCH: WfStage[] = [
     key: "sq2",
     kind: "quantum",
     title: "QAOA (Classiq)",
-    detail: "Same Classiq/Qmod pathway as Q=2, capped at a 2x2 tile (12 qubits) - 3x3 needs 27, over the real 25-qubit ceiling",
+    detail: "Same Classiq/Qmod route as two labels, capped at a 2x2 tile (12 qubits). A 3x3 tile needs 27, over the 25-qubit ceiling",
   },
 ];
 const SHADOW_OUT: WfStage = { key: "shadow-out", kind: "merge", title: "3-class segmentation", detail: "background / target / shadow mask" };
 
 const PATTERN_STAGES: WfStage[] = [
-  { key: "p1", kind: "pattern", title: "MSTAR chip", detail: "Whole chip, not ROI-limited - THALES's own \"Pattern detection\" bullet, left undefined in the brief" },
+  { key: "p1", kind: "pattern", title: "MSTAR chip", detail: "The whole chip, not just a region. This is the brief's \"Pattern detection\" bullet, which it leaves undefined" },
   { key: "p2", kind: "pattern", title: "Target patch extraction", detail: "Connected-component blob isolation -> 32x32 crop centered on the real target" },
   {
     key: "p3",
@@ -121,7 +132,7 @@ const PATTERN_STAGES: WfStage[] = [
     key: "p4",
     kind: "pattern",
     title: "Predicted target type",
-    detail: "bmp2_tank / btr70_transport / t72_tank - 51.79% real accuracy on 1365 real test chips (15-deg), vs. 33% chance",
+    detail: "bmp2_tank, btr70_transport or t72_tank. 51.79% accuracy on 1,365 test chips (15 degrees), against 33% by chance",
   },
 ];
 
@@ -237,10 +248,9 @@ export default function AboutPage() {
       <div className="hero-intro">
         <h1>About</h1>
         <p>
-          SphoorthiQ takes real SAR vehicle-target chips from MSTAR, frames segmentation as a Markov Random Field,
-          rewrites that as a QUBO, and then puts an exact classical solver up against QAOA (via Classiq/Qmod) on
-          the exact same objective, so the comparison actually means something. Everything on this page comes from
-          a real run we performed ourselves - nothing here is a placeholder or a made-up example.
+          SphoorthiQ takes radar images of vehicles from the MSTAR dataset and turns segmentation into a Markov
+          Random Field. We rewrite that as a QUBO, then run an exact classical solver and QAOA (through Classiq's
+          Qmod) on the same objective, so the two can be compared fairly. Every figure on this page comes from runs performed for this project. Test cases generated for the project, or reproduced from the THALES brief, are labelled as such.
         </p>
       </div>
 
@@ -252,6 +262,7 @@ export default function AboutPage() {
         <a href="#scaling">Scaling</a>
         <a href="#robustness">Robustness</a>
         <a href="#synthetic-validation">Synthetic validation</a>
+        <a href="#real-masks">Real-mask results</a>
         <a href="#beyond-binary">Beyond binary</a>
         <a href="#dossier">Dossier</a>
       </nav>
@@ -259,8 +270,7 @@ export default function AboutPage() {
       <section id="workflow">
         <h3>Workflow</h3>
         <p className="hint">
-          One objective, two solvers. Every stage below is real code, actually running in this app end to end on
-          real MSTAR SAR chips - this diagram describes what the app does, not just an idea for what it could do.
+          One objective, two solvers. Every stage shown is implemented in this application and runs on MSTAR chips.
         </p>
         <WorkflowDiagram />
       </section>
@@ -268,21 +278,23 @@ export default function AboutPage() {
       <section id="classical">
         <h3>Classical</h3>
         <p>
-          Each pixel gets a unary cost per label, taken straight from the chip's own real, normalized magnitude -
-          MSTAR's public release has no per-pixel target/background mask for any chip, so there's simply nothing
-          to train a classifier against. Every 4-connected neighbor pair also gets a contrast-sensitive smoothness
-          cost. That pairwise term happens to be a ferromagnetic Potts penalty, which makes the whole energy
-          submodular - and that's what lets us find the MAP labeling <em>exactly</em>, via s-t min-cut (Greig,
-          Porteous &amp; Seheult 1989), not by approximating it, and with no qubit limit at any size.
+          Each pixel gets a cost for each label, based on its brightness in decibels relative to the chip's own
+          background. A small number of constants determine where a pixel begins to count as target and how bright target and shadow are expected to be. We set them on the MSTAR TRAIN chips and score on the TEST chips, so the results
+          below are on chips the constants never saw. There is no trained classifier. Neighboring pixels (up, down,
+          left, right) also get a smoothness cost that is lower across strong edges. This pairwise cost is a Potts penalty,
+          which makes the whole energy submodular. That is what allows an exact answer through an s-t min-cut (Greig,
+          Porteous &amp; Seheult 1989), at any image size and with no qubits involved.
+        </p>
+        <p>
+          The THALES brief names a MATLAB genetic algorithm as its baseline. MATLAB is not part of this project, so we implemented a genetic algorithm in Python (it is not MATLAB's ga) and ran it on the same energy with the same evaluation budget as QAOA. The results are in Scaling. For two labels graph cut is exact, so it remains the reference that the quantum result is compared against.
         </p>
       </section>
 
       <section id="verification">
         <h3>QUBO Verification</h3>
         <p>
-          The QUBO reformulation (<code>utils/mrf/energy.py</code>'s <code>build_qubo</code>) is not merely
-          close to the MRF energy - it was checked exact over every one of the{" "}
-          <strong>65,536 possible labelings</strong> of a 4x4 patch:
+          We checked the QUBO from <code>build_qubo</code> in <code>utils/mrf/energy.py</code> against the MRF energy
+          on every one of the <strong>65,536 possible labelings</strong> of a 4x4 patch:
         </p>
         <table>
           <tbody>
@@ -292,7 +304,7 @@ export default function AboutPage() {
             </tr>
             <tr>
               <td>max |energy(x) - qubo_energy(x)| over every x</td>
-              <td>2.13 &times; 10<sup>-14</sup> (float noise, i.e. exactly 0)</td>
+              <td>2.13 &times; 10<sup>-14</sup> (rounding error, effectively 0)</td>
             </tr>
             <tr>
               <td>graph cut matches the true brute-force optimum</td>
@@ -301,37 +313,65 @@ export default function AboutPage() {
           </tbody>
         </table>
         <p className="hint">
-          Evidence file: <code>datasets/reports/11_mrf_qubo_verification.json</code>. Reproducible via{" "}
-          <code>utils/mrf/verification.py</code>'s <code>exhaustive_equivalence_check</code> and{" "}
-          <code>tests/test_mrf_energy.py</code> - this check is data-agnostic (a synthetic patch), so it holds
-          for MSTAR the same as it did for anything else fed through <code>utils/mrf/energy.py</code>.
+          The result is saved in <code>datasets/reports/11_mrf_qubo_verification.json</code>. To rerun it, use{" "}
+          <code>exhaustive_equivalence_check</code> in <code>utils/mrf/verification.py</code> or{" "}
+          <code>tests/test_mrf_energy.py</code>. The check runs on a synthetic patch, so it holds for MSTAR chips too,
+          since they go through the same <code>utils/mrf/energy.py</code>.
         </p>
       </section>
 
       <section id="quantum">
         <h3>Quantum</h3>
         <p>
-          We take that same QUBO, convert it to an Ising Hamiltonian, and hand it to QAOA on Classiq: a Qmod
-          circuit built from Classiq's own <code>qaoa_init</code> and <code>qaoa_layer</code> functions,
-          synthesized and executed on their platform. A classical <code>scipy.optimize</code> loop sits on top,
-          scoring every sampled bitstring against the real QUBO energy - the actual objective the classical
-          solver is scored on too, not some generic Hamiltonian expectation value that only looks related.
+          We take that same QUBO, convert it to an Ising Hamiltonian, and hand it to QAOA on Classiq. The circuit
+          is built from Classiq's own <code>qaoa_init</code> and <code>qaoa_layer</code> functions, then
+          synthesized and run on their platform. A classical <code>scipy.optimize</code> loop (COBYLA) sits on
+          top and adjusts the circuit is angles. Every sampled bitstring is scored against the real QUBO energy,
+          which is the same number the classical solver is judged on, so the two results are directly
+          comparable.
         </p>
+
+        <h4>What happens when a run is started</h4>
+        <ol>
+          <li>The app reads the chosen region of the real MSTAR chip and builds the energy for it.</li>
+          <li>The classical graph cut solves it exactly. This takes milliseconds.</li>
+          <li>The energy is converted to a QUBO and then an Ising Hamiltonian, and Classiq synthesizes the circuit.</li>
+          <li>
+            The optimizer takes up to 15 steps (the default). Each step sends one 512-shot job to Classiq, and the
+            progress streams back to the Results panel as it goes.
+          </li>
+          <li>A final 2,048-shot sample at the tuned settings picks the best bitstring seen, which becomes the mask.</li>
+          <li>The quantum result is shown next to the classical one, and the run is added to the job history.</li>
+        </ol>
+        <p className="hint">
+          Each optimizer step is its own Classiq job, which is why a quantum run takes about a minute. You can
+          change the layers, steps and shots under "Show advanced options" on the main page.
+        </p>
+
+        <h4>Maximum tile size</h4>
         <p>
-          We tested this live on real MSTAR ROIs, not simulated results: at 9 qubits, QAOA found the{" "}
-          <em>exact</em> classical optimum on both test chips. At 16 and 25 qubits, with the same optimizer
-          budget, it got close but fell short - the real numbers are below in Scaling, not rounded up to look
-          better.
+          The qubit count depends on the number of classes. With two classes (background and target) each pixel
+          needs one qubit, so the roughly 25-qubit limit of the Classiq simulators allows a 5x5 tile. With three
+          classes (adding the shadow) each pixel needs three qubits, plus a penalty that forces exactly one class
+          per pixel, so the limit drops to a 2x2 tile (12 qubits). A 3x3 tile would need 27.
+        </p>
+
+        <h4>Findings</h4>
+        <p>
+          We tested this on real MSTAR regions, running on Classiq's simulator. At 9 and 16 qubits, QAOA found the{" "}
+          <em>exact</em> classical optimum on both test chips, and at every noise level we tried at 9 qubits. At 9
+          qubits that shows the pipeline is correct and nothing more, because there are only 512 possible labelings and
+          random sampling with the same budget finds the optimum too. At 16 qubits random sampling rarely does, so
+          that result is better than chance, but it is one run per chip. At 25 qubits, with the same budget, QAOA approached but did not reach the optimum on either chip. The figures are in the Scaling section. QAOA is stochastic, so repeating the same tile can return a slightly different energy.
         </p>
       </section>
 
       <section id="scaling">
         <h3>Scaling</h3>
         <p>
-          We ran two real MSTAR test chips (T72 #132, BMP2 #9563) at the three qubit tiers Classiq's own
-          simulators can actually handle today - no general-purpose simulator on this account went past ~28-35
-          qubits, so a naive 6x6=36 tier was never realistic to try. You won't find IoU or F1 columns here:
-          MSTAR's public release has no per-pixel mask, so energy is the only comparison we can make honestly.
+          We ran two MSTAR test chips (T72 #132 and BMP2 #9563) at three qubit sizes. Each tile sits on the
+          vehicle's edge, where about half of it is target according to the SARBake mask, so that the solver must decide between target and background. We compare energy and also score each result against the mask. Classiq's simulators on our
+          account stop at about 28 to 35 qubits, so a 6x6 tile (36 qubits) was not feasible.
         </p>
         <table>
           <thead>
@@ -341,6 +381,9 @@ export default function AboutPage() {
               <th>qubits</th>
               <th>classical energy</th>
               <th>quantum energy</th>
+              <th>random sampling, best (mean of 30)</th>
+              <th>genetic algorithm, best (mean of 30)</th>
+              <th>classical / quantum IoU</th>
               <th>QAOA duration</th>
             </tr>
           </thead>
@@ -354,34 +397,40 @@ export default function AboutPage() {
                 <td>{r.qubits}</td>
                 <td>{r.classicalE}</td>
                 <td className={r.quantumE === r.classicalE ? "mrf-metric-better" : undefined}>{r.quantumE}</td>
-                <td>{r.quantumDuration}s</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="hint">
-          QAOA matches the classical optimum exactly at 9 qubits (both chips). At 16 and 25 qubits, with the
-          same optimizer budget, it falls short - a real, honest scaling limit, not a hidden one.
-        </p>
+                        <td>{r.randomE}</td>
+                <td>{r.gaE}</td>
+                        <td>
+                          {r.classicalIoU.toFixed(2)} / {r.quantumIoU.toFixed(2)}
+                        </td>
+                        <td>{r.quantumDuration}s</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="hint">
+                  At 9 and 16 qubits QAOA reached the classical optimum on both chips. At 25 qubits, with the same
+                  optimizer budget, it fell short on both (14.3462 against 13.8564, and 13.2295 against 12.1758), and its
+                  IoU against the mask is a little lower there. The random-sampling and genetic-algorithm columns provide context: the genetic algorithm gets the same number of evaluations as QAOA has samples, and it reached the optimum on 27 to 30 of 30 seeds on every tile except the 25-qubit BMP2 tile (18 of 30). At 25 qubits its average energy (13.9659 and 12.3871) is below QAOA's (14.3462 and 13.2295). Random
+                  sampling with the same number of samples finds the optimum on every seed at 9 qubits, so that match
+                  shows the pipeline works and nothing more. At 16 qubits it found it on only 6 and 3 of 30 seeds, and at
+                  25 qubits on none, and QAOA's energy was below the random average in all four of those rows. The IoU column is for these two chips only; averaged over 120 chips, edge tiles of this size score lower (see Real-mask results). Each QAOA value is a single run and QAOA is random, so repeat runs can differ. We do not claim a quantum advantage:
+                  the classical solver is exact and takes milliseconds.
+                </p>
         <p>
-          Classical graph cut has no qubit limit at all, so it scales past where QAOA can follow - tested at
-          8x8 (64 pixels, four times QAOA's ceiling) on the same two real chips: energy 24.2572 (T72 #132) and
-          26.8995 (BMP2 #9563), both in under 6ms. This asymmetry - classical scales trivially, quantum is
-          qubit-capped today - is the honest scaling story, not "quantum can't do this yet" hidden or glossed
-          over.
+          Graph cut has no qubit limit, so it continues beyond the point at which QAOA is limited. We ran it on 8x8 edge patches (64 pixels, four
+          times QAOA's ceiling) on the same two chips and got energies of 34.1487 (T72 #132) and 27.4969 (BMP2 #9563),
+          in about 3 ms and 2 ms, with IoU against the mask of 0.71 and 0.78. The classical solver scales without difficulty, whereas the quantum solver is currently limited by qubit count.
         </p>
       </section>
 
       <section id="robustness">
         <h3>Robustness</h3>
         <p className="hint">
-          Here we test something more controlled: we take one fixed real ROI (T72 #132, the same 3x3 = 9-qubit
-          tile where QAOA matches classical exactly in Scaling above, so we're isolating noise from qubit
-          budget) and run it at increasing levels of synthetic Gaussian noise layered on top of the real
-          magnitude (<code>utils/mrf/energy.py</code>'s <code>inject_gaussian_noise</code>, seeded so it's
-          reproducible). That's on top of, not instead of, the real speckle already in the chip - and it's a
-          different thing from the "low SNR" preset above, which is one fixed real window rather than a
-          parameter we sweep.
+          This test is more controlled. We take one fixed region (T72 #132, the same 3x3 edge tile as the first row of Scaling, where QAOA
+          matches the classical result, so qubit count is not a factor) and add increasing amounts of Gaussian noise to
+          it. The noise comes from <code>inject_gaussian_noise</code> in <code>utils/mrf/energy.py</code> and is
+          seeded, so it repeats exactly. It is added on top of the speckle already in the chip. It is also different
+          from the "Low SNR" preset, which is one fixed window rather than a setting we vary.
         </p>
         <table>
           <thead>
@@ -390,6 +439,7 @@ export default function AboutPage() {
               <th>classical energy</th>
               <th>quantum energy</th>
               <th>QAOA matches classical</th>
+              <th>classical / quantum IoU</th>
               <th>QAOA duration</th>
             </tr>
           </thead>
@@ -400,33 +450,31 @@ export default function AboutPage() {
                 <td>{r.classicalE}</td>
                 <td className={r.quantumE === r.classicalE ? "mrf-metric-better" : undefined}>{r.quantumE}</td>
                 <td>{r.quantumE === r.classicalE ? "yes" : "no"}</td>
+                <td>
+                  {r.classicalIoU.toFixed(2)} / {r.quantumIoU.toFixed(2)}
+                </td>
                 <td>{r.quantumDuration}s</td>
               </tr>
             ))}
           </tbody>
         </table>
         <p className="hint">
-          Classical energy climbs smoothly and predictably as noise increases (3.151 to 3.4489) - the
-          expected effect of a noisier signal on unary confidence. QAOA matched the exact classical optimum
-          at every single noise level tested, not just the clean case - real evidence that exactness at this
-          qubit tier isn't fragile to data quality, at least across this range. The sigma=0.15 row's 319s
-          duration is a real, unexplained outlier (a slow round trip to Classiq's platform, not a bug) -
-          reported as measured, not smoothed over. Reproducible via{" "}
-          <code>scripts/robustness_sweep.py</code> against a running instance of this app.
+          QAOA matched the classical optimum at every noise level, so at this size the match does not depend on
+          clean data. Energies cannot be compared between rows, because each noise level is a different image. The
+          scores against the mask go from 0.40 with no added noise to 0.62 at moderate noise and 0.50 at the highest
+          level. On a 9-pixel tile a single pixel changes IoU substantially, so no trend is inferred. QAOA and the
+          classical solver found the same labeling in every row, which is why their IoU is the same. To rerun the
+          sweep, use <code>scripts/robustness_sweep.py</code> against a running copy of this app.
         </p>
       </section>
 
       <section id="synthetic-validation">
         <h3>Synthetic validation</h3>
         <p className="hint">
-          Everything above this point is scored on energy alone, because real MSTAR chips simply have no
-          per-pixel mask. This is the one section where real Accuracy/IoU/Dice actually exist in this project
-          - and only because we found two real sources of ground truth to check against. First, THALES's own
-          worked example, quoted directly from page 3 of their brief - the exact same 5x5 intensity matrix and
-          label matrix printed in the document, not paraphrased. Second, a few small cases we generated
-          ourselves with a known target region. You can run this yourself, live, from the app's own
-          "Synthetic Validation" tab, via <code>POST /api/mstar/synthetic-validation</code>, or reproduce it
-          via <code>scripts/synthetic_validation_run.py</code>.
+          These cases are not MSTAR chips. Each has a known correct answer by construction, so accuracy, IoU and Dice
+          are exact here. The first case is THALES's own 5x5 example, taken from page 3 of their brief. The other three are small cases we generated with a known target
+          region. You can run them from the Synthetic Validation tab in the app, through{" "}
+          <code>POST /api/mstar/synthetic-validation</code>, or with <code>scripts/synthetic_validation_run.py</code>.
         </p>
         <table>
           <thead>
@@ -459,49 +507,94 @@ export default function AboutPage() {
           </tbody>
         </table>
         <p className="hint">
-          The classical solver reproduces THALES's own stated answer exactly (100% accuracy/IoU/Dice) on
-          every case, including their own worked example - the strongest validation this project can offer.
-          QAOA matches exactly at 9 and, on this cleaner synthetic case, at 16 qubits too - unlike the
-          Scaling sweep above, where an arbitrary real MSTAR ROI's speckle made 16 qubits fall short. At 25
-          qubits (THALES's own exact example size), QAOA falls short here too (96% accuracy) - consistent
-          with the real qubit-scaling limit disclosed throughout this project, not contradicted by the
-          16-qubit result.
+          The classical solver reproduces THALES's answer exactly on every case, including their own example (100%
+          accuracy, IoU and Dice). QAOA is exact at 9 and 16 qubits. At 25 qubits, the size of THALES's example, its accuracy drops to between 92% and 96% across four runs (the table shows the first). That fits the Scaling results on real chips, where QAOA is exact up to 16 qubits
+          and falls short at 25.
+        </p>
+      </section>
+
+      <section id="real-masks">
+        <h3>Real-mask results</h3>
+        <p>
+          MSTAR's public release has no per-pixel masks, but the SARBake overlay (Malmgren-Hansen and
+          Nobel-J&oslash;rgensen, CC BY 4.0) provides one for every chip we use. Each mask labels pixels as
+          background, target or shadow, and is generated from a 3D CAD model of the vehicle at the chip's viewing
+          angle. It is a good reference but not hand-drawn ground truth. It covers the bright vehicle return, not
+          every pixel a person might outline, and it includes thin antenna slivers. Scores below should be read
+          with that in mind.
+        </p>
+        <p>
+          We scored the classical solvers on 120 random MSTAR TEST chips (40 each of BMP2, BTR70 and T72, 15&deg;
+          depression), using a 48x48 region around each vehicle. The decibel setup was tuned on the TRAIN chips
+          only. The older setup used the chip's log-scaled, min-max normalized magnitude directly as the target
+          probability.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>score on 120 TEST chips</th>
+              <th>older setup</th>
+              <th>decibel setup</th>
+            </tr>
+          </thead>
+          <tbody>
+            {REAL_MASK_ROWS.map((r) => (
+              <tr key={r.label}>
+                <td>{r.label}</td>
+                <td>{r.before}</td>
+                <td className="mrf-metric-better">{r.after}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="hint">
+          The older setup marked about 13 target pixels where the mask has about 320, so nearly all pixels were labelled background, which is why it was replaced. Per vehicle, binary IoU with the decibel setup is 0.55
+          for BMP2, 0.50 for BTR70 and 0.62 for T72. These are classical results only. On the small edge tiles the quantum solver can run on, scores are much lower. Each tile is placed where the mask is about half target, which is the hardest case. Averaged over the same 120 chips, target IoU is 0.12 on 2x2 tiles, 0.18 on 4x4 and 0.34 on 8x8. For three classes on these tiles, pixel accuracy is 0.32 to 0.36, below the 0.50 you would get by always choosing the most common class. A few speckled pixels give little evidence for separating target, shadow and background. The two chips in the Scaling table score higher than these averages, so their IoU should not be read as typical. Reproduce them with{" "}
+          <code>scripts/sarbake_eval.py</code>. In the app, the Images and 3-Class Segmentation tabs now show the
+          mask next to each solver's result, with scores in the Metrics tab.
         </p>
       </section>
 
       <section id="beyond-binary">
         <h3>Beyond binary</h3>
         <p className="hint">
-          THALES's brief lists "beyond binary class segmentation" as a few bullets with no further spec: edge
-          detection (which we compute client-side from the labels above - no separate solver needed), 3+
-          classes, and pattern detection. We built all three for real, as running parts of this same app, not
-          as future work - each gets its own small diagram below because they branch off the base pipeline at
-          different points. We also went ahead and built the brief's two edge-detection refinements -
-          distinguishing object edges from shadow edges, and marking a single pixel per boundary instead of 2
-          - even though the document itself frames those as optional "further work." Single-pixel edges are
-          in the Images tab; the object-vs-shadow distinction is in the 3-Class Segmentation tab, since it
-          needs a Q=3 run first.
+          The THALES brief lists "beyond binary" ideas as bullets with no detail: edge detection, 3+ classes and
+          pattern detection. We built all three, and they run in this app. Each gets its own small diagram below,
+          because each branches off the main pipeline at a different point. We also built the brief's two optional edge
+          refinements: telling object edges from shadow edges, and marking one pixel per boundary instead of two.
+          Single-pixel edges are in the Images tab. Object-versus-shadow edges are in the 3-Class Segmentation tab,
+          since they need a three-class run first. Edge maps are worked out from the labels on screen, so they need no
+          separate solver.
         </p>
 
         <h4>3+ classes: shadow segmentation (Q=3)</h4>
         <p>
-          Here the vehicle's shadow becomes a third label. We reuse the exact same ROI as the Q=2 run above,
-          just with a multi-label MRF instead. One thing doesn't carry over, though: Q=2's exactness guarantee.
-          S-t graph cut is a two-terminal construction that only works for two labels, so the classical solver
-          here has to fall back to an approximate method (alpha-expansion), and the one-hot QUBO encoding
-          triples the qubit cost per pixel - which caps the quantum path at a 2x2 tile instead of Q=2's 5x5.
+          Here the vehicle's shadow becomes a third label, using the same region as the two-class run above but with
+          a multi-label MRF. The exactness guarantee does not carry over. Graph cut needs exactly two labels, so for
+          three the classical solver falls back to alpha-expansion, which is approximate. The one-hot QUBO also needs
+          three qubits per pixel instead of one, so the quantum path is limited to a 2x2 tile instead of 5x5. Scored
+                    against the SARBake masks on 120 TEST chips (see Real-mask results), the three-class classical result
+                    reaches a mean IoU of 0.66, with 0.72 for the shadow.
         </p>
         <ShadowDiagram />
 
+        <p className="hint">
+          Our results differ from the brief's printed examples in two places. In its three-class example the shadow
+          has a middle brightness (50, between the target's 100 and the background's 10), but we model the shadow as
+          dark. On that example the solver agrees with the printed labels on 21 of 25 pixels (84%) when its background
+          reference is 0.2 or lower, but it labels all four shadow pixels as background. With a reference of 0.3 or
+          higher it agrees on 11 of 25 (44%), because it then labels ten pixels as shadow. In its edge example only the
+          object-side pixel of each boundary is marked. Our both-sides map differs from that matrix on 5 pixels, and our
+          single-pixel map (which keeps the top or left pixel) on 1.
+        </p>
+
         <h4>Pattern detection: target-type recognition</h4>
         <p>
-          THALES names "Pattern detection" in their document and leaves it at that - no equations, no example,
-          nothing concrete to build against. Rather than skip it, or invent something arbitrary, we built the
-          interpretation the brief's own MSTAR literature points toward (Mahalanobis et al.'s correlation-filter
-          target recognition): given a chip, recognize which real vehicle it actually is. That's a disclosed
-          judgment call on our part, not a hidden one - and we report its real accuracy plainly rather than
-          inflating it: 51.79%, well above the 33% chance baseline for 3 classes, well below what a modern CNN
-          would reach (~95%+).
+          The brief lists "pattern detection" and says nothing more, so there was no equation or example to build
+          against. We chose the reading its MSTAR references point to (Mahalanobis et al.'s correlation-filter
+          recognition): given a chip, work out which vehicle it is. That is our own interpretation, and we say so.
+          Accuracy is 51.79%, well above the 33% one would get by guessing among three classes and well below the roughly
+          95% a modern CNN reaches.
         </p>
         <PatternDiagram />
       </section>
@@ -510,87 +603,69 @@ export default function AboutPage() {
         <h3>Dossier</h3>
         <ul className="about-dossier-list">
           <li>
-            <strong>Problem framing:</strong> SAR vehicle-target segmentation (real MSTAR chips) as MAP
-            inference over a binary MRF (THALES SAR-segmentation brief).
+            <strong>Problem framing:</strong> SAR vehicle segmentation on MSTAR chips, treated as MAP inference over a binary MRF (the THALES brief).
           </li>
           <li>
-            <strong>Objective:</strong> minimize unary + pairwise energy; identical objective for classical
-            and quantum solvers.
+            <strong>Objective:</strong> minimize unary plus pairwise energy. The classical and quantum solvers use the identical objective.
           </li>
           <li>
-            <strong>Variables:</strong> one binary label per pixel (one qubit per pixel for the quantum path).
+            <strong>Variables:</strong> one binary label per pixel, which means one qubit per pixel on the quantum path.
           </li>
           <li>
-            <strong>Constraints:</strong> exactly one label per pixel - structural for Q=2 (a single binary
-            variable can't be two labels at once), enforced by an explicit one-hot penalty term for Q=3
-            (nothing stops the QUBO from favoring two labels at once otherwise). Pairwise structure is
-            4-connected neighbors only, not 8-connected. The real, measured qubit ceiling
-            (~25 qubits on the Classiq simulators available to this project) bounds ROI size directly - 5x5
-            for Q=2, 2x2 for Q=3. QAOA's classical outer loop is budget-limited (COBYLA,{" "}
-            <code>qaoa_max_iterations</code>, default 15) - a real, disclosed compute cap, not an
-            unlimited search.
+            <strong>Constraints:</strong> each pixel gets exactly one label. With two labels that holds automatically. With
+            three, a one-hot penalty term enforces it, because otherwise the QUBO could favor two labels at once.
+            Neighbors are 4-connected, not 8. The qubit ceiling of about 25 on the available Classiq simulators limits
+            the tile to 5x5 for two labels and 2x2 for three. QAOA's outer loop is capped too (COBYLA,{" "}
+            <code>qaoa_max_iterations</code>, 15 by default), so it is a limited search, not an exhaustive one.
           </li>
           <li>
-            <strong>Assumptions:</strong> no per-pixel ground truth exists in MSTAR's public release, so
-            energy is treated as the only honest objective-level comparison - accuracy/IoU/Dice are assumed
-            unavailable, never estimated or approximated. The chip's own real, log-normalized magnitude is
-            assumed sufficient unary evidence with no trained classifier behind it - the same assumption
-            THALES's own worked example makes ("We consider here only the intensity to label the pixels").
-            The pairwise term assumes same-label neighbors are more likely than not (a standard Potts-style
-            vision prior), not something fit to MSTAR-specific statistics. The Robustness sweep's synthetic
-            noise assumes i.i.d. Gaussian perturbation is a reasonable controlled stressor, layered on top of
-            (not a replacement for) the real SAR speckle already in the chip.
+            <strong>Assumptions:</strong> MSTAR's public release has no per-pixel ground truth. We score real chips against
+          the SARBake masks, which come from CAD models and are a good reference, not hand-drawn truth. We assume a
+          chip's brightness in decibels, against its own background, is enough evidence for the unary term, with no
+          trained classifier, as THALES's own example does ("We consider here only the intensity to label the pixels"). The pairwise term assumes neighbors tend to share a label, a standard
+            Potts prior that is not fitted to MSTAR statistics. The noise test assumes independent Gaussian noise is a
+            fair stress test, added on top of the speckle already in the chip.
           </li>
           <li>
-            <strong>Candidate formulations considered:</strong> one-hot vs. binary/log&#8322;(Q) qubit
-            encoding for Q=3 - one-hot was chosen despite tripling the per-pixel qubit cost, because a
-            binary/log encoding needs its own nontrivial penalty terms to rule out invalid codewords, and
-            this project's standard is verified-exact-or-clearly-labeled-approximate, not clever-but-unverified.
-            QAOA vs. quantum annealing - THALES's own reference [7] (Otgonbaatar &amp; Datcu) uses annealing
-            for SAR segmentation; QAOA was chosen instead because Classiq/Qmod, the platform this project
-            standardizes on, is a gate-model toolkit, not an annealer. Alpha-expansion vs. alpha-beta swap for
-            the Q=3 classical baseline - alpha-expansion is the standard Boykov-Veksler-Zabih choice for
-            Potts-like pairwise costs.
+            <strong>Candidate formulations:</strong> for three labels we considered one-hot and binary (log&#8322;Q) qubit
+            encodings. We picked one-hot even though it triples the qubits per pixel, because a binary encoding needs
+            extra penalty terms to rule out invalid codes, and we wanted results we could verify. THALES's reference [7]
+            (Otgonbaatar &amp; Datcu) uses quantum annealing, but we chose QAOA because Classiq/Qmod is a gate-model
+            platform, not an annealer. For the three-label classical baseline we used alpha-expansion rather than
+            alpha-beta swap, the standard Boykov-Veksler-Zabih choice for Potts-style costs.
           </li>
           <li>
-            <strong>Label count:</strong> Q=2 (background/target) is THALES's core validation-set task, and the
-            one place the graph-cut exactness claim above holds - it's a two-terminal (source/sink) construction
-            that doesn't generalize to Q&gt;2. Q=3 (adding the vehicle's shadow) is also implemented, not left as
-            future work - see Beyond binary below - but honestly: it trades that exactness for approximate
-            alpha-expansion classically, and each additional label multiplies the quantum qubit cost per pixel
-            (one-hot: +Q qubits/pixel), a real cost against the qubit ceiling, not a free extension.
+            <strong>Label count:</strong> two labels (background and target) is THALES's core task, and the only case
+            where the graph-cut exactness claim holds, since the s-t construction does not extend past two labels. Three
+            labels (adding the shadow) is implemented too (see Beyond binary above), but it gives up exactness for
+            approximate alpha-expansion, and each extra label adds qubits per pixel against the same ceiling.
           </li>
           <li>
-            <strong>Formulation:</strong> MRF -&gt; QUBO (verified exact) -&gt; Ising Hamiltonian -&gt; QAOA.
+            <strong>Formulation:</strong> MRF -&gt; QUBO (checked exact) -&gt; Ising Hamiltonian -&gt; QAOA.
           </li>
           <li>
-            <strong>Quantum suitability:</strong> proven correct at small scale (9 qubits); qubit-budget-limited
-            and optimizer-limited today at 16-25 qubits (~25-28 qubits ceiling on available simulators).
+            <strong>Quantum suitability:</strong> correct at small scale: exact at 9 and 16 qubits on both chips tested. At
+          25 qubits it falls short, limited by the qubit budget and the optimizer, and the available simulators are limited to around 25 to 28 qubits.
           </li>
           <li>
-            <strong>Execution pathway:</strong> Classiq Qmod -&gt; synthesis -&gt; ExecutionSession -&gt;
-            scipy-driven classical optimizer loop.
+            <strong>Execution pathway:</strong> Classiq Qmod, synthesis, ExecutionSession, with a scipy optimizer loop on top.
           </li>
           <li>
-            <strong>Scalability:</strong> a full 128x128 chip needs tiling into many small ROIs, not one large
-            circuit - no result here claims otherwise.
+            <strong>Scalability:</strong> a full 128x128 chip would have to be split into many small regions rather than run
+            as one circuit. Nothing here claims otherwise.
           </li>
           <li>
-            <strong>Integration:</strong> <code>GET /api/mstar/chips</code>, <code>POST /api/mstar</code> (and
-            its live-streaming twin <code>/api/mstar/stream</code>), <code>POST /api/mstar/shadow</code>,{" "}
-            <code>POST /api/mstar/pattern</code> + <code>GET /api/mstar/pattern/evaluation</code>, and{" "}
-            <code>POST /api/mstar/synthetic-validation</code> - all wired into this running application, not a
-            standalone notebook only.
+            <strong>Integration:</strong> <code>GET /api/mstar/chips</code>, <code>POST /api/mstar</code> (and its
+            live-streaming twin <code>/api/mstar/stream</code>), <code>POST /api/mstar/shadow</code>,{" "}
+            <code>POST /api/mstar/pattern</code> with <code>GET /api/mstar/pattern/evaluation</code>, and{" "}
+            <code>POST /api/mstar/synthetic-validation</code>. All of them are part of this running app, not just a notebook.
           </li>
           <li>
-            <strong>Next-step roadmap:</strong> full-chip tiling with cross-patch consistency, so one run
-            covers a whole 128x128 chip instead of a single ROI. Execution on real quantum hardware - every
-            result on this page is a Classiq simulator backend (<code>simulator</code> /{" "}
-            <code>nvidia_simulator</code> /{" "}
-            <code>dgx_simulator</code>), no QPU wired up yet. General Q-ary generalization beyond Q=3, if a
-            real requirement ever calls for it - the alpha-expansion/QUBO machinery in{" "}
-            <code>utils/mrf/multilabel_energy.py</code> already loops over a generic label count internally,
-            so this would be a scoped extension, not a rewrite.
+            <strong>Next steps:</strong> tile a whole 128x128 chip with consistency between neighboring tiles, so one run
+            covers the full chip instead of one region. Run on real quantum hardware (everything here used a Classiq
+            simulator: <code>simulator</code>, <code>nvidia_simulator</code> or <code>dgx_simulator</code>). Go beyond
+            three labels if a real need appears. <code>utils/mrf/multilabel_energy.py</code> already loops over a generic
+            label count, so that would be a small extension.
           </li>
         </ul>
       </section>

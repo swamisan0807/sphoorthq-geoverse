@@ -84,4 +84,4 @@ def test_api_synthetic_validation_classical_only_returns_real_metrics():
         assert case["classical"]["metrics"] is not None
         assert case["classical"]["metrics"]["accuracy"] == 1.0
         assert case["quantum"] is None  # run_quantum was false
-    assert "never against a real MSTAR chip" in body["note"]
+    assert "None of the cases is an MSTAR chip" in body["note"]

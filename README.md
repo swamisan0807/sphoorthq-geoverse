@@ -4,7 +4,7 @@ Real MSTAR SAR vehicle-target chips, segmented by formulating the problem as a M
 reformulating that exactly as a QUBO, and benchmarking an **exact classical solver** (s-t min-cut graph
 cut) against **QAOA on Classiq/Qmod** on the identical objective. Built for THALES' **SAR Image
 Segmentation** use-case (Quantum Innovation Summit 2026). Every number this app reports is from a real
-run against real data — no synthetic examples, no fabricated ground truth, no invented metrics.
+run against real data. The few synthetic test cases are labelled as such, and no ground truth or metric is invented.
 
 ## Contents
 
@@ -23,9 +23,12 @@ run against real data — no synthetic examples, no fabricated ground truth, no 
 
 1. **Real data** — MSTAR Public Targets chips (X-band SAR, Sandia National Lab): T72/BMP2/BTR70 vehicles
    plus a SLICY calibration target, real 128×128 (54×54 for SLICY) magnitude imagery. No per-pixel
-   target/background mask ships with the public release, so this app never claims IoU/Dice/precision —
-   only the real objective (energy) both solvers are scored on.
-2. **MRF formulation** — each pixel gets a unary cost from its own real, normalized magnitude; each
+   mask ships with the public release. Real chips are therefore scored against the **SARBake** overlay
+   (Malmgren-Hansen and Nobel-Jørgensen, CC BY 4.0, doi:10.17632/jxhsg8tj7g.3), which labels every
+   T72/BMP2/BTR70 chip as background, target or shadow from a 3D CAD model of the vehicle. It is a good
+   reference, not hand-drawn ground truth. Without the masks the app falls back to reporting energy only.
+2. **MRF formulation** — each pixel gets a unary cost from its brightness in decibels against the chip's own background
+   (constants tuned on the TRAIN split, scored on TEST); each
    4-connected neighbor pair gets a contrast-sensitive pairwise smoothness cost
    (`utils/mrf/energy.py`).
 3. **Two solvers, one objective**:
@@ -47,10 +50,9 @@ run against real data — no synthetic examples, no fabricated ground truth, no 
      inflated — at 51.79% real accuracy on 1,365 real test chips (33% is chance for 3 classes).
 5. **Web app** — single-page React UI (`apps/web`) over a FastAPI backend (`apps/api`), live-streaming
    real per-iteration QAOA progress, wired into the running app end to end (not a standalone notebook).
-6. **Synthetic validation** — real MSTAR chips have no per-pixel ground truth, so real Accuracy/IoU/Dice
-   only exist against synthetic cases with known ground truth: THALES's own worked example (quoted
-   directly from their brief), plus a few generated cases. The classical solver reproduces THALES's own
-   stated answer exactly; QAOA matches it too at 9 and 16 qubits, and falls short (96%) at 25
+6. **Synthetic validation** — exact Accuracy/IoU/Dice on cases whose right answer is known by construction:
+   THALES's own worked example (quoted directly from their brief), plus a few generated cases. The classical solver reproduces THALES's own
+   stated answer exactly; QAOA matches it too at 9 and 16 qubits, and falls short (92% to 96% over four runs) at 25
    (`utils/mrf/synthetic_validation.py`, `utils/mrf/metrics.py`).
 
 See [docs/Algorithm_Design_Dossier.md](docs/Algorithm_Design_Dossier.md) for the full write-up (problem
@@ -201,7 +203,7 @@ All `/api/mstar*` routes require a bearer token from `/api/auth/login` or `/sign
 ## Verification & testing
 
 ```bash
-.venv/Scripts/python.exe -m pytest tests/ -q     # real MSTAR chips, no mocks — 47 tests
+.venv/Scripts/python.exe -m pytest tests/ -q     # real MSTAR chips, no mocks — 53 tests
 ruff check .                                     # lint (E/F/I — real bugs, not style opinions)
 
 cd apps/web
@@ -211,16 +213,25 @@ npm run build                                    # tsc -b && vite build
 
 Specific evidence worth knowing about (see the About page for the full story):
 
+- Against the SARBake masks, on 120 random TEST chips (`scripts/sarbake_eval.py`), the classical two-class
+  solver reaches a target IoU of 0.56 (0.04 with the earlier raw-magnitude unary term), and the
+  three-class solver a mean IoU of 0.66 (0.16 before). The decibel constants were tuned on TRAIN chips only.
+  On the small edge tiles the quantum solver runs on, scores are much lower (target IoU 0.18 on 4×4, 0.34 on 8×8;
+  three-class accuracy below the majority-class baseline), because a few speckled pixels give little evidence.
 - The QUBO reformulation is checked **exact** over all 65,536 states of a 4×4 patch
   (`utils/mrf/verification.py`, `tests/test_mrf_energy.py`) — max deviation 2.13×10⁻¹⁴ (float noise).
-- QAOA is live-tested at 9/16/25 qubits on two real chips: exact match at 9 qubits, a real (not
-  hidden) shortfall at 16 and 25 under the same optimizer budget.
+- The brief names a MATLAB genetic algorithm as its baseline. MATLAB is not part of this project, so `scripts/ga_baseline.py` runs a
+  genetic algorithm implemented in Python (not MATLAB's `ga`) on the same energy and QAOA's evaluation budget. It reaches the optimum on
+  27 to 30 of 30 seeds on every scaling tile except the 25-qubit BMP2 tile, and beats QAOA's average energy at 25 qubits.
+- QAOA is live-tested at 9/16/25 qubits on two real chips (edge tiles, `scripts/scaling_sweep.py`): exact
+  match at 9 and 16 qubits, a shortfall at 25 under the same optimizer budget. Random sampling with the
+  same sample budget also finds the optimum at 9 qubits, so that match proves the pipeline, not an advantage.
 - The Q=3 alpha-expansion reduction was caught wrong on its first implementation (a plain-XOR graph-cut
   primitive reused incorrectly) and fixed only after 500/500 brute-force trials passed — see
   `utils/mrf/multilabel_energy.py`'s module docstring for the exact bug.
 - QAOA matched the exact classical optimum at every synthetic-noise level tested (`scripts/robustness_sweep.py`),
   and reproduced THALES's own worked example exactly at the classical level, 100% quantum match at 9/16
-  qubits, falling short (96%) at 25 (`scripts/synthetic_validation_run.py`).
+  qubits, falling short (92% to 96% over four runs) at 25 (`scripts/synthetic_validation_run.py`).
 
 ## Environment variables
 
@@ -234,14 +245,15 @@ All optional — sensible dev defaults otherwise.
 | `AUTH0_DOMAIN` / `AUTH0_CLIENT_ID` / `AUTH0_CLIENT_SECRET` | enables "Log in with Auth0" | unset → that button 501s; self-service login still works |
 | `CORS_ORIGINS` | extra allowed origins, comma-separated | dev-server ports only |
 | `CLASSIQ_AUTH_ORGANIZATION` | Classiq org id, if the account needs one | read from `%APPDATA%\classiq\config.env` if unset |
+| `SARBAKE_DIR` | folder holding the SARBake `BMP2/`, `BTR70/` and `T72/` CSV mask folders | `datasets/raw/sarbake` |
 
 ## Known limitations (stated plainly)
 
 - **Real qubit ceiling (~25 qubits)** on the Classiq simulators available to this project — caps Q=2 at
   a 5×5 tile, Q=3 at a 2×2 tile. A full 128×128 chip needs tiling into many small ROIs; this app runs
   one ROI at a time and says so, rather than claiming otherwise.
-- **No per-pixel ground truth** in the public MSTAR release — every comparison here is on the real
-  objective (energy), never a fabricated IoU/Dice/precision number.
+- **No hand-drawn ground truth** for MSTAR. Real-chip scores use the SARBake masks, which come from CAD
+  models, so they are a good guide and not perfect truth. Chips without a mask (SLICY) are compared on energy only.
 - **Q=3 loses Q=2's exactness guarantee** — s-t graph cut is a two-terminal construction; the classical
   Q=3 solver (alpha-expansion) is a real, working, but approximate algorithm.
 - **Pattern detection accuracy (51.79%)** is a deliberately simple, transparent baseline (correlation

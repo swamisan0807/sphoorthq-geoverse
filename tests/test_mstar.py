@@ -70,13 +70,32 @@ def test_mstar_no_object_preset_is_genuinely_target_free():
     assert all(v == 0 for v in flat), "no-object preset ROI produced a non-background label - not genuinely target-free"
 
 
+def _boundary_window(size: int = 4) -> tuple[int, int]:
+    """First window, scanning from the middle of the chip, where the SARBake
+    mask is roughly half target (so a real segmentation must
+    contain both labels). Falls back to a fixed window without masks."""
+    from utils.mrf import sarbake
+
+    mask = sarbake.load_mask(_CHIP_ID)
+    if mask is None:
+        return 69, 61
+    for r in range(40, 90):
+        for c in range(40, 90):
+            window = mask[r : r + size, c : c + size] == sarbake.TARGET
+            if 0.35 * window.size <= window.sum() <= 0.65 * window.size:
+                return r, c
+    raise AssertionError("no target/background boundary window found in the mask")
+
+
 def test_mstar_classical_only_returns_real_segmentation():
     from apps.api.main import app
+    from utils.mrf import sarbake
 
+    row0, col0 = _boundary_window()
     client = TestClient(app)
     resp = client.post(
         "/api/mstar",
-        json={"chip_id": _CHIP_ID, "row0": 69, "col0": 61, "size": 4, "run_quantum": False},
+        json={"chip_id": _CHIP_ID, "row0": row0, "col0": col0, "size": 4, "run_quantum": False},
         headers=_auth_headers(),
     )
     assert resp.status_code == 200, resp.text
@@ -88,11 +107,16 @@ def test_mstar_classical_only_returns_real_segmentation():
     assert len(body["classical"]["labels"]) == 4
     assert len(body["classical"]["labels"][0]) == 4
     assert all(v in (0, 1) for row in body["classical"]["labels"] for v in row)
-    # a real bright/dark ROI must not be trivially all-one-label
+    # a window that straddles the vehicle's edge must not be trivially all-one-label
     flat = [v for row in body["classical"]["labels"] for v in row]
     assert 0 in flat and 1 in flat
-    # no per-pixel ground truth exists for MSTAR's public release - metrics must never be fabricated
-    assert body["classical"]["metrics"] is None
+    # scores exist only when a SARBake mask does - never fabricated otherwise
+    if sarbake.load_mask(_CHIP_ID) is not None:
+        metrics = body["classical"]["metrics"]
+        assert set(metrics) >= {"accuracy", "iou", "dice", "precision", "recall"}
+        assert body["reference_mask"] is not None
+    else:
+        assert body["classical"]["metrics"] is None
     assert body["note"] is not None
 
 
@@ -139,7 +163,10 @@ def test_mstar_stream_classical_only_emits_real_ndjson_events():
     types = [e["type"] for e in events]
     assert types == ["classical_done", "done"]
     assert events[1]["result"]["quantum"] is None
-    assert events[1]["result"]["classical"]["metrics"] is None
+    from utils.mrf import sarbake
+
+    has_mask = sarbake.load_mask(_CHIP_ID) is not None
+    assert (events[1]["result"]["classical"]["metrics"] is not None) == has_mask
     assert events[1]["result"]["chip_id"] == _CHIP_ID
 
 
