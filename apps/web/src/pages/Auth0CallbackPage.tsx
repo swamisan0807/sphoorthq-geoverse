@@ -39,7 +39,7 @@ export default function Auth0CallbackPage({ onAuthed }: { onAuthed: () => void }
           Sphoorthi<span className="brand-q">Q</span>
         </h1>
         <p className="error">{error}</p>
-        <a className="submit" href="/login">
+        <a className="submit" href={`${import.meta.env.BASE_URL}login`}>
           Back to log in
         </a>
       </div>
