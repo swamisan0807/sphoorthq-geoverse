@@ -9,6 +9,10 @@ import AboutPage from "./pages/AboutPage";
 import Layout from "./components/Layout";
 import "./App.css";
 
+// Set only by the GitHub Pages build (VITE_SHOWCASE=true). That copy has no backend, so visitors who are not
+// signed in can read the About page, which holds the measured results. Everywhere else this is false.
+const SHOWCASE = import.meta.env.VITE_SHOWCASE === "true";
+
 function App() {
   const [authed, setAuthed] = useState(() => getToken() !== null);
   const [username, setUsername] = useState(() => getUsername());
@@ -69,12 +73,17 @@ function App() {
           />
         }
       />
+      {SHOWCASE && !authed && (
+        <Route element={<Layout backendUp={null} username={null} onLogout={logout} showcase />}>
+          <Route path="/about" element={<AboutPage />} />
+        </Route>
+      )}
       <Route
         element={
           authed ? (
             <Layout backendUp={backendUp} username={username} onLogout={logout} />
           ) : (
-            <Navigate to="/login" replace />
+            <Navigate to={SHOWCASE ? "/about" : "/login"} replace />
           )
         }
       >
@@ -82,7 +91,7 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
-      <Route path="*" element={<Navigate to={authed ? "/" : "/login"} replace />} />
+      <Route path="*" element={<Navigate to={authed ? "/" : SHOWCASE ? "/about" : "/login"} replace />} />
     </Routes>
   );
 }
