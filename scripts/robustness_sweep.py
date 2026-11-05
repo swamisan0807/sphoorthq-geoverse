@@ -4,7 +4,8 @@ against the live app's own POST /api/mstar, and prints the results as a
 Markdown table. Not simulated: every row is a real HTTP round trip to a
 running uvicorn server, including a real Classiq QAOA execution per row.
 
-Usage: .venv/Scripts/python.exe scripts/robustness_sweep.py
+Usage: SWEEP_USERNAME=... SWEEP_PASSWORD=... .venv/Scripts/python.exe scripts/robustness_sweep.py
+(optional APP_BASE; the login is an account on that app, never stored here)
 (server must already be running on 127.0.0.1:8000, Classiq session must
 already be authenticated - see README.md)
 """
@@ -34,8 +35,17 @@ def _post(path: str, body: dict, token: str | None = None) -> dict:
         return json.load(resp)
 
 
+def _credentials() -> tuple[str, str]:
+    """Login for the app under test, read from the environment so no account is stored in the code."""
+    username, password = os.environ.get("SWEEP_USERNAME"), os.environ.get("SWEEP_PASSWORD")
+    if not username or not password:
+        sys.exit("Set SWEEP_USERNAME and SWEEP_PASSWORD to an account on the app at APP_BASE, then run this again.")
+    return username, password
+
+
 def main() -> None:
-    login = _post("/api/auth/login", {"username": "arun_authcheck", "password": "TestPass123!"})
+    username, password = _credentials()
+    login = _post("/api/auth/login", {"username": username, "password": password})
     token = login["token"]
 
     rows = []
