@@ -158,7 +158,11 @@ the best of about 9,700 uniformly random labelings (QAOA's sample budget), avera
 | T72 #132 (test) | 5×5 | 25 | 13.8564 | 14.3462 | 20.1669 | 13.9659 | 0.59 / 0.57 | 127.5s |
 | BMP2 #9563 (test) | 5×5 | 25 | 12.1758 | 13.2295 | 18.4777 | 12.3871 | 0.71 / 0.67 | 124.2s |
 
-QAOA matches the classical optimum at 9 and 16 qubits on both chips. At 25 qubits, with the same
+In these selected runs QAOA matches the classical optimum at 9 and 16 qubits on both chips. This is not
+QAOA's overall record at 16 qubits: across all 66 binary QAOA jobs the application has recorded on a 4×4
+tile (many chips, settings and earlier versions), only 17 reached the optimum. The two sets of runs are
+different, and together they show that a 16-qubit match is possible but not the usual result of a single
+run. At 25 qubits, with the same
 optimizer budget, it falls short on both (14.3462 against 13.8564, and 13.2295 against 12.1758), and its
 IoU against the mask is a little lower. Random sampling finds the optimum on every seed at 9 qubits, on 6
 and 3 of 30 seeds at 16 qubits, and on none at 25, and QAOA's energy is below the random average in all
